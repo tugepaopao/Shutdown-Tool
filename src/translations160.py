@@ -1,0 +1,87 @@
+"""v1.6界面文案；原控件本地化使用同一份映射。"""
+EN={
+ '自动保留最近10份正常配置\n计时状态变化不会反复生成备份':'Keep the last 10 good configurations\nTimer updates do not create extra backups',
+ '备份范围':'Backup contents',
+ '包含：常用设置、命名模板、高级任务定义':'Included: settings, named templates and advanced task definitions',
+ '不包含：运行中的定时、队列、自启动项':'Excluded: active timer, queue and startup entry',
+ **{str(n)+'天后':'In '+str(n)+' days' for n in range(3,8)},
+ '自动化与预览':'Automation & preview','快捷键与通知':'Hotkeys & notifications','备份与恢复':'Backup & recovery',
+ '恢复上一次正常配置':'Restore previous good settings','查看自动备份':'View automatic backups',
+ '自动备份最近10份正常配置；计时状态变化不会反复生成备份。':'Keep the last 10 good configurations. Timer updates do not create extra backups.',
+ '配置损坏时自动尝试恢复；手动恢复前会显示预览。':'Try recovery automatically if settings are damaged. Manual recovery shows a preview first.',
+ '恢复不替换运行中计时、当前队列和自启动项；高级任务保持停用。':'Recovery preserves the active timer, queue and startup setting. Restored advanced tasks stay disabled.',
+ '删除后撤销':'Undo deletion','撤销上一次删除':'Undo last deletion','删除的队列任务或模板可在5分钟内撤销，最多保留20次；退出后清除。':'Undo queue or template deletions within 5 minutes (up to 20). History clears on exit.',
+ '恢复的任务不会自动开始。':'Restored tasks do not start automatically.',
+ '已撤销删除':'Deletion undone','没有可撤销的删除（保留5分钟，退出后清除）':'Nothing to undo (5-minute history; cleared on exit).',
+ '今天跳过一次':'Skip today','未来7天任务预览':'Next 7 days','管理预约、条件与任务链':'Schedules, conditions & task chains',
+ '同一分钟重叠；按队列执行':'Same minute; runs in queue order','时间明确的预约显示在下表；条件任务和任务链不预测完成时刻。':'Dated schedules appear below. Conditions and chains have no predictable finish time.',
+ '只显示已启用任务；工作日指周一至周五，不调整法定节假日。':'Enabled tasks only. Weekdays mean Mon–Fri, without holiday adjustments.',
+ '刷新预览':'Refresh preview','日期':'Date','时刻':'Time','任务名称':'Task name','提示':'Note',
+ '暂无预约':'No bookings',
+ '没有未来7天内的预约':'No enabled schedules in the next 7 days',
+ '网络安静且无人操作':'Quiet network AND user idle','程序成功后执行':'After a program succeeds',
+ '无人操作（分钟）':'User idle (minutes)','前置程序（exe）':'First program (.exe)','前置程序参数':'Program arguments',
+ '组合条件须先观察到网络活动，再同时满足安静和无人操作时长。':'Combined conditions require observed traffic, then both quiet traffic and user inactivity.',
+ '任务链只在退出码为0时执行后续动作；超时或取消不关闭前置程序。':'Chains continue only after exit code 0. Timeout or cancellation leaves the first program running.',
+ '任务链重开程序后不会自动运行，需手动重新启用。':'Chains never restart automatically after reopening this app. Enable them again manually.',
+ '请选择已启用的重复预约':'Select an enabled recurring schedule.',
+ '等待无人操作':'Waiting for user inactivity','前置程序运行中':'First program running','重开后需重新启用任务链':'Re-enable the chain after reopening',
+ '等待活动':'Waiting for activity','传输中':'Transferring','确认安静中':'Confirming quiet traffic',
+ '已完成，加入队列':'Completed; added to queue','等待超时，未执行':'Timed out; no action','监控失败，未执行':'Monitoring failed; no action',
+ '全局快捷键':'Global hotkeys','启用全局快捷键':'Enable global hotkeys','唤出主窗口':'Show main window','暂停当前定时':'Pause current timer','继续当前定时':'Resume current timer',
+ '支持Ctrl、Alt、Shift加字母／数字／F1～F12；快捷键冲突会提示，不会覆盖其他程序。':'Use Ctrl, Alt or Shift plus a letter, digit or F1–F12. Conflicts are reported; other apps keep their shortcuts.',
+ 'Windows桌面通知':'Windows notifications','启用桌面通知':'Enable desktop notifications','任务已设置':'Task scheduled','任务已完成':'Task completed','任务失败':'Task failed','发送测试通知':'Send test notification',
+ '通知跟随Windows通知设置；专注助手或系统禁用通知时可能不弹出。':'Windows controls delivery. Focus Assist or disabled system notifications may hide notifications.',
+ '这是一条测试通知。':'This is a test notification.','通知已提交给Windows':'Notification sent to Windows','托盘不可用，无法发送通知':'The tray is unavailable; cannot send a notification.',
+ '前五个预设固定；最后一项可选择今天、明天、后天或最多7天后。':'The first five presets are fixed. The last can target today or up to 7 days from today.',
+ '第6个按钮的日期':'Preset 6 day','第6个按钮的时间':'Preset 6 time','今天':'Today','明天':'Tomorrow','后天':'In 2 days',
+ '今天的时间已过去，请在设置中选择其他日期或更晚的时间。':'That time has passed today. Choose a later time or another day in Settings.',
+ '网络流量':'Network traffic','设置已保存，但自动备份失败：':'Settings saved, but automatic backup failed: ','剩余':'Remaining','就绪':'Ready','正在计时':'Counting down','已暂停':'Paused','预计':'Due','后执行':'until action',
+ '允许强制关闭应用（关机／重启／注销）':'Force applications to close (shutdown / restart / logoff)',
+ '安静阈值（KB/s，收发总和）':'Quiet threshold (KiB/s, total)','连续安静（秒）':'Quiet duration (seconds)',
+ '(时:分)':'(HH:MM)','保存模板':'Save template','模板名称：':'Template name:',
+ '删除任务':'Delete task','操作未完成':'Operation incomplete','任务设置有误':'Invalid task settings',
+ '名称有误':'Invalid name','名称不能为空或重复。':'Names cannot be empty or duplicated.',
+ '先停用任务':'Disable this task first','请先停用该任务，再编辑。':'Disable this task before editing.',
+ '无法启用':'Cannot enable','导出完成':'Export complete','导出失败':'Export failed','导入完成':'Import complete','导入失败':'Import failed','导入预览':'Import preview',
+ '设置、模板和高级任务已保存。运行中定时、队列和开机自启动不包含在备份内。':'Settings, templates and advanced tasks were saved. The active timer, queue and startup entry are excluded.',
+ '没有运行中的定时':'No active timer','请先开始一个定时任务。':'Start a timer first.',
+ '请只选择一个任务。':'Select exactly one task.','不能编辑':'Cannot edit','复制失败':'Copy failed','排序失败':'Cannot reorder',
+ '保存失败':'Save failed','模板保存失败':'Failed to save templates','队列保存失败':'Failed to save queue',
+ '配置保存失败，原设置已保留。':'Settings could not be saved. Previous settings were preserved.',
+ '备份时间':'Backup time','模板数':'Templates','高级任务数':'Advanced tasks','恢复选中备份':'Restore selected backup',
+ '暂无自动备份':'No automatic backups',
+ '暂无自动备份；下一次保存正常配置后会自动建立。':'No automatic backups yet. Saving valid settings creates a backup.',
+ '请选择一个备份':'Select a backup','确认恢复':'Confirm recovery','恢复完成':'Recovery complete',
+ '刷新':'Refresh','关闭':'Close','正常':'OK',
+}
+EN.update({
+ '任务链使用说明':'Using task chains',
+ '先观察到网络活动\n再同时满足网络安静与无人操作时长':'Observe network activity first\nThen wait for both network quiet and user inactivity',
+ '只显示已启用的预约，含今天共7天\n工作日按周一至周五计算，不调整节假日':'Enabled schedules only; seven days including today\nWorkdays mean Mon–Fri, without holiday adjustments',
+ '成功后执行：前置程序退出码为0才继续':'On success: continue only when the program exits with code 0',
+ '超时或取消：不关闭正在运行的前置程序':'On timeout or cancellation: leave the program running',
+ '重新打开工具：任务链需手动重新启用':'After reopening: enable the task chain manually',
+})
+# 新增文案及旧功能的常用繁体字，已有核心文案仍优先使用i18n的完整翻译。
+CHARS=str.maketrans({'设':'設','置':'置','备':'備','份':'份','复':'復','恢':'恢','删':'刪','销':'銷','队':'隊','列':'列','务':'務','暂':'暫','继':'繼','续':'續','启':'啟','动':'動','后':'後','开':'開','关':'關','闭':'閉','时':'時','间':'間','网':'網','络':'絡','条':'條','链':'鏈','预':'預','览':'覽','显':'顯','执':'執','并':'並','个':'個','钟':'鐘','择':'擇','选':'選','换':'換','输':'輸','入':'入','错':'錯','误':'誤','为':'為','认':'認','写':'寫','说':'說','导':'匯','录':'錄','声':'聲','图':'圖','体':'體','读':'讀','数':'數','标':'標','准':'準','当':'當','损':'損','坏':'壞','储':'儲','存':'存','档':'檔','温':'溫','览':'覽','优':'優','话':'話','键':'鍵','冲':'衝','突':'突','会':'會','这':'這','从':'從','处':'處','级':'級','仅':'僅','与':'與','发':'發','现':'現','实':'實','态':'態','阶':'階','段':'段','过':'過','长':'長','达':'達','还':'還','静':'靜','无':'無','监':'監','测':'測','检':'檢','传':'傳','满':'滿','功':'功','败':'敗','码':'碼','权':'權','限':'限','径':'徑','请':'請','让':'讓','里':'裡','弹':'彈','将':'將','单':'單','屏':'螢','应':'應','导':'匯','称':'稱','称':'稱','查':'查','询':'詢','约':'約','软':'軟','线':'線','简':'簡','阅':'閱','须':'須','盘':'盤','气':'氣','节':'節','假':'假','调':'調','整':'整','总':'總','变':'變','败':'敗','够':'夠','内':'內','触':'觸','达':'達','维':'維','护':'護','围':'圍','够':'夠','断':'斷','议':'議','导':'匯','报':'報','来':'來','误':'誤'})
+
+def feature(T,text):
+    lang=getattr(T,'lang','CHS')
+    if lang=='CHS':return text
+    if lang=='CHT':return text.translate(CHARS)
+    from i18n import FEATURE_EN
+    if text in EN:return EN[text]
+    if text in FEATURE_EN:return FEATURE_EN[text]
+    if text.startswith('延后') and text.endswith('分钟'):return 'Postpone '+text[2:-2]+' min'
+    if text.endswith('天后') and text[:-2].isdigit():return 'In '+text[:-2]+' days'
+    if text.startswith('等待 '):return 'Waiting '+text[3:]
+    if text.startswith('今天已跳过；下次 '):return 'Skipped today; next '+text[len('今天已跳过；下次 '):]
+    if text.startswith('删除「') and text.endswith('」？'):return 'Delete “'+text[3:-2]+'”?'
+    return text
+
+EN.update({'指定星期（单次）':'Selected weekday (once)','循环间隔':'Repeat interval','具体日期／重复预约':'Specific date / repeating schedule','具体日期与重复预约在这里设置；保存后需手动启用。':'Set specific dates and recurring schedules here. Enable tasks after saving.'})
+
+EN.update({'定点执行（单次）': 'At a set time (once)', '请选择要关闭的程序 exe 文件': 'Select the exe of the program to close', '不能选择本工具或系统关键程序': 'This tool and critical system programs cannot be selected', '目标程序没有可关闭的窗口，请确认程序正在运行': 'No closeable window found; check that the program is running', '程序仍在运行，可能正在等待保存、取消退出或收进托盘': 'Program is still running; it may be waiting to save, have cancelled exit or be in the tray', '关闭请求被系统拒绝，请检查目标程序权限': 'Close request denied; check target permissions', '无法访问目标程序，请检查权限': 'Cannot access the target program; check permissions', '旧版关闭显示器任务已停用，请选择其他操作': 'Legacy display-off tasks are disabled; select another action'})
+
+EN.update({'目标程序当前没有运行': 'The target program is not running', '部分进程无法结束，请以管理员身份运行本工具后重试': 'Some processes could not be ended; run this tool as administrator and retry', '已跳过系统关键进程或本工具，未全部结束': 'Protected system or tool processes were skipped; not all processes ended', '程序仍有进程运行或被其他软件重新启动，请重试': 'Some processes remain or another program restarted the app; retry'})
