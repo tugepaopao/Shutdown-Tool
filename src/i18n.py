@@ -10,7 +10,7 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "1.6.8"
+VERSION = "1.6.9"
 BUILD_DATE = "2026-10-09"
 
 FEATURE_EN = {
@@ -1060,6 +1060,16 @@ def weekday_names(lang):
     if lang == "CHT":
         return ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
     return ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+
+_TEXTS['CHS'].update({'mon_title': '系统监控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '内存', 'mon_disk': '磁盘空间', 'mon_network': '网络速率', 'mon_uptime': '系统运行时长', 'mon_hint': '每秒刷新；磁盘显示已用空间，网络为全机收发速率。切换页面或关闭设置后停止采样，不保存监控历史。', 'float_title': '悬浮倒计时', 'float_enabled': '开启桌面悬浮倒计时', 'float_topmost': '保持悬浮窗置顶', 'float_opacity': '不透明度', 'float_hint': '拖动标题或时间可移动悬浮窗，位置自动记住。暂停／继续和取消只作用于当前计时；取消不会清空等待队列。无计时任务时显示就绪状态。', 'float_running': '正在计时 · 可拖动移动', 'float_paused': '已暂停 · 可继续', 'float_idle': '暂无计时任务', 'float_cancel': '取消当前任务', 'float_reset': '重置悬浮窗位置', 'float_apply_hint': '修改后点「应用」生效；关闭开关只隐藏悬浮窗，不会停止任务。'})
+
+_TEXTS['CHT'].update({'mon_title': '系統監控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '記憶體', 'mon_disk': '磁碟空間', 'mon_network': '網路速率', 'mon_uptime': '系統運行時長', 'mon_hint': '每秒更新；磁碟顯示已用空間，網路為全機收發速率。切換頁面或關閉設定後停止取樣，不保存監控歷史。', 'float_title': '浮動倒數計時', 'float_enabled': '開啟桌面浮動倒數計時', 'float_topmost': '保持浮動視窗置頂', 'float_opacity': '不透明度', 'float_hint': '拖動標題或時間可移動視窗，自動記住位置。暫停／繼續及取消只作用於目前計時；取消不清空等待佇列。沒有任務時顯示就緒。', 'float_running': '正在計時 · 可拖動移動', 'float_paused': '已暫停 · 可繼續', 'float_idle': '目前沒有計時任務', 'float_cancel': '取消目前任務', 'float_reset': '重設浮動視窗位置', 'float_apply_hint': '修改後按「套用」生效；關閉開關只隱藏視窗，不停止任務。'})
+
+_TEXTS['EN'].update({'mon_title': 'System monitor', 'mon_cpu': 'CPU usage', 'mon_memory': 'Memory', 'mon_disk': 'Disk space', 'mon_network': 'Network speed', 'mon_uptime': 'System uptime', 'mon_hint': 'Updates every second. Disk shows used space; network rates cover all adapters. Sampling stops when you leave this page or close Settings. No history is stored.', 'float_title': 'Floating countdown', 'float_enabled': 'Enable desktop countdown', 'float_topmost': 'Keep countdown on top', 'float_opacity': 'Opacity', 'float_hint': 'Drag the title or time to move; the position is saved. Pause/resume and cancel affect the current timer only. Cancel keeps the waiting queue. Idle state is shown when no timer is running.', 'float_running': 'Counting down · Drag to move', 'float_paused': 'Paused · Resume when ready', 'float_idle': 'No active timer', 'float_cancel': 'Cancel current task', 'float_reset': 'Reset window position', 'float_apply_hint': 'Click Apply to save changes. Disabling this window keeps the task running.'})
+
+_TEXTS['CHS']['float_info']='使用说明'
+_TEXTS['CHT']['float_info']='使用說明'
+_TEXTS['EN']['float_info']='How it works'
 
 _TEXTS['CHS']['tip_need_sound']='请先选择本地音频文件，公开版不附带内置音乐。'
 _TEXTS['CHT']['tip_need_sound']='請先選擇本機音訊檔案，公開版不附帶內建音樂。'

@@ -189,6 +189,8 @@ class App(object):
         except (ValueError,OSError) as exc:
             self.cfg['hotkeys_enabled']=False;self.desktop=DesktopServices(self)
             self.root.after(800,lambda e=str(exc):messagebox.showwarning(self.T('tip_title'),e,parent=self.root))
+        from ui_floating import FloatingController
+        self.floating = FloatingController(self)
         if self.cfg.recovery_notice:self.root.after(1000,lambda:messagebox.showinfo(self.T('tip_title'),i18n.feature_text(self.T,self.cfg.recovery_notice),parent=self.root))
 
     # ================================================================ 图标 / 窗口装饰
@@ -1529,6 +1531,7 @@ class App(object):
         self.quit_app()
 
     def quit_app(self):
+        if getattr(self, "floating", None): self.floating.close()
         self.display_awake.close()
         if getattr(self, "automation", None): self.automation.close()
         try:
@@ -1896,6 +1899,8 @@ class App(object):
             settings.pc_panel.awake_var.set(bool(self.cfg.get('keep_display_on')))
         desktop=getattr(self,'desktop',None)
         if desktop:desktop.apply()
+        floating=getattr(self,"floating",None)
+        if floating:floating.apply()
         if self.tray:
             self.tray.refresh()
         return False

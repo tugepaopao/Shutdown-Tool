@@ -41,7 +41,7 @@ a = Analysis(
         'ui_compact', 'task_store', 'task_features', 'transfer_monitor', 'automation', 'ui_tasks', 'psutil',
         'ui_window', 'ui_transition', 'sound_library',
         'ui_sound','config_backups','condition_jobs','desktop_services','undo_store','schedule_preview','translations160','ui_localize','ui_extras','ui_summary',
-        'program_control', 'ui_close_program', 'display_awake', 'pc_controls', 'ui_pc_controls', 'audio_player', 'miniaudio', '_miniaudio', '_cffi_backend',
+        'system_metrics', 'ui_monitor', 'ui_floating', 'program_control', 'ui_close_program', 'display_awake', 'pc_controls', 'ui_pc_controls', 'audio_player', 'miniaudio', '_miniaudio', '_cffi_backend',
     ],
     hookspath=[],
     hooksconfig={},

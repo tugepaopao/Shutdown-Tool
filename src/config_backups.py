@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 KEEP=10
-EXCLUDED={'queue','pending_timer','autostart','templates','automations'}
+EXCLUDED={'queue','pending_timer','autostart','templates','automations','float_x','float_y','float_positioned'}
 
 def validate_settings(data):
     from app_config import DEFAULT_SETTINGS
@@ -20,6 +20,8 @@ def validate_settings(data):
     for key,allowed in {'language':{'CHS','CHT','EN'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'}}.items():
         if key in data and data[key] not in allowed:raise ValueError('配置字段值错误：'+key)
     if not 0<=data.get('quick_day_offset',1)<=7:raise ValueError('自定义预设日期越界')
+    if not 40<=data.get('float_opacity',90)<=100:raise ValueError('悬浮窗不透明度越界')
+    if any(abs(data.get(k,0))>200000 for k in ('float_x','float_y')):raise ValueError('悬浮窗位置越界')
     if any(len(data.get(k,[]))>200 for k in ('queue','templates','automations')):raise ValueError('任务数量超过上限')
     from task_store import normalize
     for key in ('queue','templates','automations'):

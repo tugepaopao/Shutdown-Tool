@@ -2,9 +2,9 @@
 
 一个轻量的 Windows 桌面定时工具：选择操作、设定时间，即可完成关机、提醒、程序运行与程序强制结束等任务。支持托盘运行、任务队列、常用模板及条件预约，亮度、音量等辅助功能集中在设置里。
 
-**当前公开版本：v1.6.8** · **作者：@wenhao** · **代码许可证：MIT**
+**当前公开版本：v1.6.9** · **作者：@wenhao** · **代码许可证：MIT**
 
-> 从 v1.6.8 开始公开源代码。此仓库为原版 v1.6.8 的公开发行版：不附带内置音乐，播放声音时请自行选择本地音频文件。软件核心操作和定时能力保持。
+> 从 v1.6.8 开始公开源代码。此仓库为当前维护版本的公开发行版：不附带内置音乐，播放声音时请自行选择本地音频文件。软件核心操作和定时能力保持。
 
 [下载最新版](https://github.com/tugepaopao/Shutdown-Tool/releases/latest) · [使用说明](使用说明.md) · [构建说明](docs/BUILD.md) · [系统兼容](docs/COMPATIBILITY.md) · [报告问题](https://github.com/tugepaopao/Shutdown-Tool/issues)
 
@@ -27,10 +27,10 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `Shutdown-Tool-v1.6.8-Setup.exe` | 安装版，提供安装向导、快捷方式和卸载入口；推荐普通用户使用 |
-| `Shutdown-Tool-v1.6.8-Portable.exe` | 单文件版，下载后双击运行，无需安装向导 |
-| `Shutdown-Tool-v1.6.8-Source.zip` | 完整公开源码、资源、构建脚本及文档；面向开发者 |
-| `Shutdown-Tool-v1.6.8-UserGuide.zip` | 使用说明、兼容说明及界面截图 |
+| `Shutdown-Tool-v1.6.9-Setup.exe` | 安装版，提供安装向导、快捷方式和卸载入口；推荐普通用户使用 |
+| `Shutdown-Tool-v1.6.9-Portable.exe` | 单文件版，下载后双击运行，无需安装向导 |
+| `Shutdown-Tool-v1.6.9-Source.zip` | 完整公开源码、资源、构建脚本及文档；面向开发者 |
+| `Shutdown-Tool-v1.6.9-UserGuide.zip` | 使用说明、兼容说明及界面截图 |
 | `SHA256.txt` | 上述文件的 SHA256 校验值 |
 
 GitHub 的 **Code → Download ZIP** 下载的是源代码，不能替代可直接运行的 exe。安装程序和便携版请从 Releases 下载。
@@ -112,6 +112,16 @@ GitHub 的 **Code → Download ZIP** 下载的是源代码，不能替代可直�
 自动检测连接的显示器，以主屏、副屏 1、副屏 2 等命名，支持独立或联动亮度调整；系统音量和静音控制当前默认播放设备。还可开启“防止电脑自动息屏”，阻止自动息屏和自动睡眠，退出工具后释放请求。
 
 外接屏亮度通常需要显示器启用 DDC/CI，线材、转接器和驱动也需支持；不支持的设备会显示说明并禁用滑块。笔记本内置屏使用 WMI。常亮不拦截手动锁屏、手动睡眠、定时休眠、屏幕保护程序或锁屏策略。亮度、音量和常亮属于即时设置，点取消不会撤销已经生效的调整。
+
+### 系统监控与桌面悬浮倒计时（v1.6.9）
+
+**设置 → 系统监控**：每秒刷新CPU、内存、所选本地磁盘空间、全机上传/下载速率和系统运行时长。磁盘数据是空间占用，网络速率按实际采样间隔计算。离开此页或关闭设置停止采样，不保存监控历史。
+
+**设置 → 悬浮倒计时**：默认关闭，开启后点应用。显示当前任务的剩余时间，暂停/继续或取消当前任务；取消保留等待队列。支持40%～100%不透明度（默认100%）、置顶、拖动和记住位置、位置重置。主窗最小化或收进托盘仍可见；关闭开关只隐藏浮窗，不停止任务。没有计时任务时显示就绪，等待网络等高级条件时不会虚构倒计时。导入配置后默认关闭并重置跨设备位置。
+
+![系统监控](docs/images/system-monitor.png)
+![悬浮倒计时设置](docs/images/floating-settings.png)
+![悬浮倒计时](docs/images/floating-countdown.png)
 
 ## 第一次使用
 
@@ -197,7 +207,7 @@ Shutdown-Tool/
 下载后可在 PowerShell 中运行：
 
 ```powershell
-Get-FileHash .\Shutdown-Tool-v1.6.8-Setup.exe -Algorithm SHA256
+Get-FileHash .\Shutdown-Tool-v1.6.9-Setup.exe -Algorithm SHA256
 ```
 
 将结果与同一 Release 的 `SHA256.txt` 比对。开发测试说明见 [VALIDATION.md](docs/VALIDATION.md)，其他系统和设备的实际表现以现场验证为准。

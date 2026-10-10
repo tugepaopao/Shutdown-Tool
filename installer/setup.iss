@@ -6,7 +6,7 @@
 ; ============================================================
 
 #define MyAppName "定时关机工具"
-#define MyAppVersion "1.6.8"
+#define MyAppVersion "1.6.9"
 #define MyAppPublisher "@wenhao"
 #define MyAppExeName "定时关机工具.exe"
 #define MyAppId "{{8F3C1A72-5B4E-4C9D-9E21-7A6B0C5D3F10}"
@@ -33,7 +33,7 @@ AllowNoIcons=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\output
-OutputBaseFilename=定时关机工具_v1.6.8_安装包
+OutputBaseFilename=定时关机工具_v1.6.9_安装包
 SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} v{#MyAppVersion}
@@ -45,11 +45,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 MinVersion=10.0
-VersionInfoVersion=1.6.8.0
+VersionInfoVersion=1.6.9.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} 安装程序
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion=1.6.8.0
+VersionInfoProductVersion=1.6.9.0
 
 [Languages]
 Name: "chinese"; MessagesFile: "ChineseSimplified.isl"

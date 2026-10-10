@@ -35,6 +35,8 @@ M_DATETIME = "datetime"
 M_INTERVAL = "interval"
 
 DEFAULT_SETTINGS = {
+    "float_enabled": False, "float_topmost": True, "float_opacity": 100,
+    "float_x": 0, "float_y": 0, "float_positioned": False,
     'quick_day_offset': 1,
     'hotkeys_enabled': False,
     'hotkey_show': 'Ctrl+Alt+H',

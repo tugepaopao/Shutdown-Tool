@@ -4,7 +4,7 @@
 文件作者：@wenhao
 """
 import tkinter as tk
-from ui_pc_controls import ControlPanel
+from ui_pc_controls import ControlPanel, PercentSlider
 from ui_window import prepare, show, button_grid
 import tkinter.font as tkfont
 from tkinter import ttk
@@ -16,6 +16,9 @@ from app_config import parse_hm
 from i18n import AUTHOR, LANGUAGE_FILES, language_desc
 from theme import palette_for, ACCENTS, ACCENT_ORDER, enable_button, flat_button, theme
 
+
+class OpacitySlider(PercentSlider):
+    def _set(self,value):return super()._set(max(40,value))
 
 def _group(parent, title):
     """带标题的分组框（v1.3.0 小清新版式）。
@@ -67,6 +70,7 @@ class SettingsWindow(tk.Toplevel):
         self.nav.pack(side="left", fill="y")
         nav_font=tkfont.Font(font=theme.font())
         labels=[Texts(lang)(key) for lang in ('CHS','CHT','EN') for key in ('set_general','set_display','set_appearance','set_other','set_tasks','set_backup')]
+        labels += [Texts(lang)(key) for lang in ('CHS','CHT','EN') for key in ('mon_title','float_title')]
         labels += [Texts(lang)('pc_title') for lang in ('CHS','CHT','EN')]
         labels += [feature_text(Texts(lang),text) for lang in ('CHS','CHT','EN') for text in ('自动化与预览','快捷键与通知')]
         self.nav.column('#0',width=max(nav_font.measure(text) for text in labels)+38,stretch=False)
@@ -74,7 +78,7 @@ class SettingsWindow(tk.Toplevel):
                  ("display", self.T("set_display")),
                  ("appearance", self.T("set_appearance")),
                  ("other", self.T("set_other")), ("tasks", self.T("set_tasks")), ("backup", self.T("set_backup"))]
-        pages += [('pc',self.T('pc_title'))]
+        pages += [('pc',self.T('pc_title')),('monitor',self.T('mon_title')),('floating',self.T('float_title'))]
         pages += [('automation',feature_text(self.T,'自动化与预览')),('desktop',feature_text(self.T,'快捷键与通知'))]
         for key, label in pages:
             self.nav.insert("", "end", iid=key, text="  " + label)
@@ -96,6 +100,9 @@ class SettingsWindow(tk.Toplevel):
         self._build_automation()
         self._build_desktop()
         self.pc_panel = ControlPanel(self._page("pc", self.T("pc_title")), self)
+        from ui_monitor import MonitorPanel
+        self.monitor_panel = MonitorPanel(self._page("monitor",self.T("mon_title")),self)
+        self._build_floating()
         self._current = None
         self._show("general")
 
@@ -142,8 +149,31 @@ class SettingsWindow(tk.Toplevel):
         self.v["quick_at_today"].set("22:00")
         self.v['quick_day_offset']=tk.IntVar(value=int(c.get('quick_day_offset',1)))
         for key in ('hotkey_show','hotkey_pause','hotkey_resume'):self.v[key]=tk.StringVar(value=c.get(key))
+        for key in ("float_enabled","float_topmost"):self.v[key]=tk.BooleanVar(value=bool(c.get(key)))
+        self.v["float_opacity"]=tk.IntVar(value=c.get("float_opacity",100))
         for var in self.v.values():
             var.trace_add("write", self._mark_dirty)
+
+    def _build_floating(self):
+        pad=self._page('floating',self.T('float_title'))
+        group=_group(pad,self.T('float_title'));group.pack(fill='x',padx=10,pady=10)
+        self._check(group,'float_enabled',self.T('float_enabled'))
+        self._check(group,'float_topmost',self.T('float_topmost'))
+        row=tk.Frame(group,bg=theme.c('bg'));row.pack(fill='x',padx=10,pady=10)
+        tk.Label(row,text=self.T('float_opacity'),bg=theme.c('bg'),fg=theme.c('fg'),font=theme.font()).pack(side='left')
+        self.opacity_text=tk.Label(row,text='',bg=theme.c('bg'),fg=theme.accent,font=theme.font());self.opacity_text.pack(side='right')
+        def changed(*args):self.opacity_text.configure(text=str(self.v['float_opacity'].get())+'%')
+        self.v['float_opacity'].trace_add('write',changed);changed()
+        OpacitySlider(group,self.v['float_opacity'],lambda value:None).pack(fill='x',padx=10,pady=(0,10))
+        flat_button(group,self.T('float_reset'),self._reset_float).pack(fill='x',padx=10,pady=(0,10))
+        info=_group(pad,self.T('float_info'));info.pack(fill='x',padx=10,pady=(0,10))
+        tk.Label(info,text=self.T('float_apply_hint'),bg=theme.c('bg'),fg=theme.c('fg'),font=theme.font(),wraplength=420,justify='left',anchor='w').pack(fill='x',padx=10,pady=(10,0))
+        tk.Label(info,text=self.T('float_hint'),bg=theme.c('bg'),fg=theme.c('fg_dim'),font=theme.font(),wraplength=420,justify='left',anchor='w').pack(fill='x',padx=10,pady=10)
+    def _reset_float(self):
+        self.cfg['float_positioned']=False;self.cfg.save()
+        floating=getattr(self.app,'floating',None)
+        if floating and floating.window:
+            floating.window.destroy();floating.window=None;floating.apply()
 
     def _set_apply_enabled(self, enabled):
         enable_button(self.apply_btn, enabled)
@@ -531,6 +561,7 @@ class SettingsWindow(tk.Toplevel):
             else:
                 frame.pack_forget()
         self._current = key
+        self.monitor_panel.set_active(key=="monitor")
         if hasattr(self,'_scroll_pages'):
             canvas,pad,scroll,item=self._scroll_pages[key];canvas.yview_moveto(0)
         if key == "pc": self.pc_panel.refresh()
@@ -571,7 +602,7 @@ class SettingsWindow(tk.Toplevel):
             except Exception:pass
             messagebox.showerror('操作未完成',str(exc),parent=self);return
         autostart.set_enabled(bool(self.cfg.get('autostart')))
-        self.app.apply_settings();self.pc_panel.retheme();self.dirty=False
+        self.app.apply_settings();self.pc_panel.retheme();self.monitor_panel.render();self.dirty=False
         if self.cfg.backup_error:messagebox.showwarning(self.T('tip_title'),feature_text(self.T,'设置已保存，但自动备份失败：')+self.cfg.backup_error,parent=self)
         if close:self.destroy();return
         self._set_apply_enabled(False)

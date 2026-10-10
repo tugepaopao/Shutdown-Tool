@@ -63,7 +63,7 @@ def update_app(app,old):
     app._refresh_preset_labels();app._set_status(status_key,**status_kw);app._set_running_ui(app.engine.is_running())
     settings=getattr(app,'_settings_win',None)
     if settings and settings.winfo_exists():
-        nav_keys={'general':'set_general','display':'set_display','appearance':'set_appearance','other':'set_other','tasks':'set_tasks','backup':'set_backup','pc':'pc_title'}
+        nav_keys={'general':'set_general','display':'set_display','appearance':'set_appearance','other':'set_other','tasks':'set_tasks','backup':'set_backup','pc':'pc_title','monitor':'mon_title','floating':'float_title'}
         for key in settings.nav.get_children():
             text=app.T(nav_keys[key]) if key in nav_keys else feature_text(app.T,'自动化与预览' if key=='automation' else '快捷键与通知')
             settings.nav.item(key,text='  '+text)

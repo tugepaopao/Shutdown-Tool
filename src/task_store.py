@@ -133,8 +133,8 @@ def read_backup(path):
         default=DEFAULT_SETTINGS[key]
         if isinstance(default,bool) and not isinstance(value,bool):raise ValueError(key+'类型错误')
         if type(default) is int:
-            high={'cd_days':60,'cd_hours':23,'cd_minutes':59,'cd_seconds':59,'dt_weekday':6,'dt_hour':23,'dt_minute':59,'dt_second':59,'iv_hours':23,'iv_minutes':59,'iv_seconds':59,'toast_seconds':600,'quick_day_offset':7}.get(key,86400)
-            low=3 if key=='toast_seconds' else 0
+            high={'cd_days':60,'cd_hours':23,'cd_minutes':59,'cd_seconds':59,'dt_weekday':6,'dt_hour':23,'dt_minute':59,'dt_second':59,'iv_hours':23,'iv_minutes':59,'iv_seconds':59,'toast_seconds':600,'quick_day_offset':7,'float_opacity':100,'float_x':200000,'float_y':200000}.get(key,86400)
+            low=-200000 if key in ('float_x','float_y') else 40 if key=='float_opacity' else 3 if key=='toast_seconds' else 0
             if type(value) is not int or not low<=value<=high:raise ValueError(key+'范围错误')
         if isinstance(default,str) and (not isinstance(value,str) or len(value)>10000):raise ValueError(key+'类型错误')
         settings[key]=value
@@ -157,6 +157,8 @@ def read_backup(path):
     from desktop_services import parse_hotkey
     for key in ('hotkey_show','hotkey_pause','hotkey_resume'):
         if key in settings:parse_hotkey(settings[key])
+    settings['float_positioned']=False
+    settings['float_enabled']=False
     settings['hotkeys_enabled']=False
     settings['keep_display_on']=False
     settings['quick_at_today']='22:00'
