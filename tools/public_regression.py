@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='shutdown-public-test-') as folder:
         check('no default music',DEFAULT_SETTINGS['sound_file']=='')
         check('legacy builtin does not resolve to missing asset',resolve('builtin:old-track')=='')
         check('custom path unchanged',resolve('C:/audio/test.wav')=='C:/audio/test.wav')
-        shot(app.root,'main.png')
+        pass
         dlg=SoundDialog(app);pump()
         check('sound picker has no builtin selection',not hasattr(dlg,'source'))
         shot(dlg,'sound-picker.png')
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='shutdown-public-test-') as folder:
         check('sound task requires parameter',not blank_accepted)
         editor.v['parameter'].set(str(audio));check('sound task keeps selected file',editor.collect()['sound_file']==str(audio));editor.destroy()
         center=app.open_queue();pump();shot(center,'task-manager.png');center.destroy()
-        settings=app.open_settings();settings._show('pc');pump();shot(settings,'pc-controls.png');settings.destroy();app._settings_win=None
+        settings=app.open_settings();settings._show('pc');pump();shot(settings,'pc-controls.png');settings._show('monitor');pump();shot(settings,'system-monitor.png');settings._show('floating');pump();shot(settings,'floating-settings.png');settings.destroy();app._settings_win=None
         check('no Tk callback errors',not errors)
         check('no timers/tasks started',not app.engine.is_running() and not app.task_queue)
     finally:

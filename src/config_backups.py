@@ -17,7 +17,7 @@ def validate_settings(data):
         if key not in DEFAULT_SETTINGS:continue
         default=DEFAULT_SETTINGS[key]
         if type(value) is not type(default):raise ValueError('配置字段类型错误：'+key)
-    for key,allowed in {'language':{'CHS','CHT','EN'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'}}.items():
+    for key,allowed in {'skin':set(__import__('skins').SKIN_CHOICES)|{'custom'},'language':{'CHS','CHT','EN'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'}}.items():
         if key in data and data[key] not in allowed:raise ValueError('配置字段值错误：'+key)
     if not 0<=data.get('quick_day_offset',1)<=7:raise ValueError('自定义预设日期越界')
     if not 40<=data.get('float_opacity',90)<=100:raise ValueError('悬浮窗不透明度越界')
@@ -29,6 +29,8 @@ def validate_settings(data):
 
 def portable(data):
     from app_config import DEFAULT_SETTINGS
+    data=dict(data)
+    if data.get('skin')=='custom':data['skin']='solid'
     settings={k:copy.deepcopy(data.get(k,v)) for k,v in DEFAULT_SETTINGS.items() if k not in EXCLUDED}
     jobs=copy.deepcopy(data.get('automations') or [])
     for j in jobs:

@@ -22,7 +22,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --workpath build_work --distpath dist build.spec
 ```
 
-生成dist/定时关机工具.exe。PyInstaller包含运行时；用户不需要安装Python。请使用干净构建目录避免旧缓存；所有assets/ui及图标必须在源码目录中。公开配置不含assets/audio。
+生成dist/定时关机工具.exe。PyInstaller包含运行时；用户不需要安装Python。请使用干净构建目录避免旧缓存；所有 assets/ui、assets/skins 及图标必须在源码目录中。公开配置不含assets/audio。
 
 ## 构建安装包
 
@@ -49,6 +49,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe tools\platform_regression.py
 .\.venv\Scripts\python.exe tools\force_regression.py
 .\.venv\Scripts\python.exe tools\public_regression.py
+.\.venv\Scripts\python.exe tools\language_surface_regression.py
 .\.venv\Scripts\python.exe tools\widgets_regression.py
 .\.venv\Scripts\python.exe tools\fixed_layout_regression.py
 .\.venv\Scripts\python.exe tools\cozy_dpi_regression.py

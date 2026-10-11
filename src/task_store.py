@@ -138,7 +138,8 @@ def read_backup(path):
             if type(value) is not int or not low<=value<=high:raise ValueError(key+'范围错误')
         if isinstance(default,str) and (not isinstance(value,str) or len(value)>10000):raise ValueError(key+'类型错误')
         settings[key]=value
-    enums={'language':{'CHS','CHT','EN'},'theme_mode':{'light','dark','system'},'font_size':{'small','normal','large','huge'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'},'action':ACTIONS,'mode':{'countdown','datetime','interval'}}
+    if settings.get('skin')=='custom':settings['skin']='solid'
+    enums={'skin':set(__import__('skins').SKIN_CHOICES),'language':{'CHS','CHT','EN'},'theme_mode':{'light','dark','system'},'font_size':{'small','normal','large','huge'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'},'action':ACTIONS,'mode':{'countdown','datetime','interval'}}
     for key,values in enums.items():
         if key in settings and settings[key] not in values:raise ValueError(key+'值不受支持')
     templates=[];jobs=[]

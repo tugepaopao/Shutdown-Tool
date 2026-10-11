@@ -28,10 +28,12 @@ def animate(app,old_palette,old_accent,old_dark,duration=360):
     for widget in walk(app.root):
         if getattr(widget,'_theme_fixed',False):continue
         roles=getattr(widget,'_theme_roles',{})
-        options=widget.configure();changes={}
-        for option in OPTIONS:
-            if option not in options:continue
-            current=str(options[option][-1])
+        fields=getattr(widget,'_theme_options',None)
+        if fields is None:
+            fields=tuple(option for option in OPTIONS if option in widget.keys());widget._theme_options=fields
+        changes={}
+        for option in fields:
+            current=str(widget.cget(option))
             role=roles.get(option)
             if role is None:
                 matches=[key for key,value in old.items() if value.lower()==current.lower()]
@@ -58,7 +60,7 @@ def animate(app,old_palette,old_accent,old_dark,duration=360):
         settings=getattr(app,'_settings_win',None)
         if settings and settings.winfo_exists() and getattr(settings,'_pc_panel',None) is not None:settings.pc_panel.retheme()
         from ui_compact import refresh_icons
-        refresh_icons(app)
+        if duration>0 or not hasattr(app,"skin_renderer"):refresh_icons(app)
         app._last_transition_samples.append(blend(old_palette['bg'],target['bg'],eased))
         for widget,changes in entries:
             try:widget.configure(**{option:blend(before,after,eased) for option,(before,after) in changes.items()})
@@ -69,8 +71,11 @@ def animate(app,old_palette,old_accent,old_dark,duration=360):
             app._refresh_action_styles();app._refresh_mode_btns();app._set_running_ui(app.engine.is_running())
             settings=getattr(app,'_settings_win',None)
             if settings and settings.winfo_exists():settings._refresh_accent_rings();settings._set_apply_enabled(settings.dirty)
+            from ui_dialog_chrome import update
+            for widget in walk(app.root):
+                if isinstance(widget,tk.Toplevel):update(widget)
     def frame():
-        t=min(1,(time.monotonic()-start)*1000/duration);paint(t)
+        t=1.0 if duration<=0 else min(1,(time.monotonic()-start)*1000/duration);paint(t)
         if t<1:
             app._color_transition={'after':app.root.after(20,frame),'paint':paint}
         else:

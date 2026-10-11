@@ -219,6 +219,9 @@ class Theme(object):
         self.mode_key = self.mode = "light"
         self.accent_key = self._pick(cfg.get("accent"), ACCENT_ORDER, "orange")
         self.size_key = "normal"
+        import skins
+        self.skin_key=skins.valid(cfg.get("skin"))
+        if self.skin_key in skins.PROFILES:self.accent_key=skins.PROFILES[self.skin_key][1]
         return self
 
     @staticmethod
@@ -228,7 +231,7 @@ class Theme(object):
     # ---------------------------------------------------------- 取色 / 取字
     @property
     def p(self):
-        return getattr(self, '_transition_palette', None) or palette_for(self.accent_key)
+        return getattr(self, '_transition_palette', None) or (__import__('skins').palette(self.skin_key) if getattr(self,'skin_key',None) in __import__('skins').PROFILES else palette_for(self.accent_key))
 
     def c(self, key):
         """取调色板颜色；accent 单独走主题色。"""
@@ -238,7 +241,7 @@ class Theme(object):
 
     @property
     def accent(self):
-        return getattr(self, '_transition_accent', None) or ACCENTS[self.accent_key]
+        return getattr(self, '_transition_accent', None) or (__import__('skins').PROFILES[self.skin_key][0] if getattr(self,'skin_key',None) in __import__('skins').PROFILES else ACCENTS[self.accent_key])
 
     @property
     def accent_soft(self):

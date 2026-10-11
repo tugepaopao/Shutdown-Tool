@@ -15,13 +15,22 @@ def pil_font(size,bold=False):
 def scale(widget):
     return max(1,min(3,float(widget.tk.call('tk','scaling'))/(96/72)))
 
+@lru_cache(maxsize=48)
+def _round_mask(w,h,radius):
+    radius=max(1,min(int(radius),w//2,h//2));mask=Image.new('L',(w,h),255)
+    # Antialias only the corners; resizing entire large cards blocked theme changes.
+    circle=Image.new('L',(radius*6,radius*6));ImageDraw.Draw(circle).ellipse((0,0,radius*6-1,radius*6-1),fill=255)
+    circle=circle.resize((radius*2,radius*2),Image.Resampling.LANCZOS)
+    for source,dest in [((0,0,radius,radius),(0,0)),((radius,0,radius*2,radius),(w-radius,0)),((0,radius,radius,radius*2),(0,h-radius)),((radius,radius,radius*2,radius*2),(w-radius,h-radius))]:mask.paste(circle.crop(source),dest)
+    return mask
+
 def plate(width,height,fill,border,shadow,radius=18,raised=True,base=None):
-    # One clean surface: no ornamental arc, stacked rim, or inset shadow.
-    w=max(2,int(width));h=max(2,int(height));s=3
-    im=Image.new('RGB',(w*s,h*s),base or fill);d=ImageDraw.Draw(im)
-    d.rounded_rectangle((0,0,w*s-1,h*s-1),radius=radius*s,fill=fill,
-                        outline=border if border and border!=fill else None,width=s)
-    return im.resize((w,h),Image.Resampling.LANCZOS)
+    w=max(2,int(width));h=max(2,int(height));mask=_round_mask(w,h,int(radius))
+    image=Image.composite(Image.new('RGB',(w,h),border or fill),Image.new('RGB',(w,h),base or fill),mask)
+    if border and border!=fill and w>4 and h>4:
+        inner=Image.new('RGB',(w-2,h-2),fill);image.paste(inner,(1,1),_round_mask(w-2,h-2,max(1,int(radius)-1)))
+    else:image=Image.composite(Image.new('RGB',(w,h),fill),Image.new('RGB',(w,h),base or fill),mask)
+    return image
 
 class CozyButton(tk.Button):
     """A real Tk Button: native invoke, focus, shortcuts and disabled behavior.
@@ -68,6 +77,7 @@ class CozyButton(tk.Button):
             for k,v in self._v.items():result[k]=(k,k,k,'',v)
             result['state']=('state','state','State','normal',self._state)
             return result
+        measure=bool(set(kw)&(self.virtual|{'font'}))
         if 'state' in kw:
             self._state=str(kw.pop('state'));kw['takefocus']=0 if self._state=='disabled' else 1
         if 'command' in kw:self._command=kw.pop('command')
@@ -76,13 +86,18 @@ class CozyButton(tk.Button):
         # The image plate owns its border; keep native border at zero.
         kw.pop('highlightthickness',None)
         result=super().configure(**kw) if kw else None
-        if self._ready:self._measure();self._schedule()
+        if self._ready:
+            if measure:self._measure()
+            self._schedule()
         return result
     config=configure
     def cget(self,key):return self._state if key=='state' else self._v[key] if key in self._v else super().cget(key)
     __getitem__=cget
     def _content(self):
-        font=tkfont.Font(root=self,font=super().cget('font'));text=str(self._v['text']);image=self._v['image']
+        specification=str(super().cget('font'))
+        if getattr(self,'_font_specification',None)!=specification:
+            self._font_specification=specification;self._content_font=tkfont.Font(root=self,font=specification)
+        font=self._content_font;text=str(self._v['text']);image=self._v['image']
         try:iw=int(self.tk.call('image','width',str(image))) if image else 0;ih=int(self.tk.call('image','height',str(image))) if image else 0
         except tk.TclError:iw=ih=0
         tw=max((font.measure(line) for line in text.split('\n')),default=0);th=font.metrics('linespace')*max(1,len(text.split('\n'))) if text else 0
@@ -94,6 +109,10 @@ class CozyButton(tk.Button):
         else:cw=max(tw,iw);ch=max(th,ih)
         return font,text,image,iw,ih,tw,th,cw,ch,gap
     def _measure(self):
+        # Main controls already reserve room for every supported language.
+        # Keep their requests stable instead of redistributing column pixels.
+        renderer=getattr(self.winfo_toplevel(),'_skin_renderer',None)
+        if getattr(renderer,'_localizing',False) and hasattr(self,'_natural'):return
         font,_,_,_,_,_,_,cw,ch,_=self._content();s=scale(self)
         width=max(cw+2*int(float(self._v['padx']))+12,int(float(self._v['width'] or 0))*font.measure('0'))
         height=max(ch+2*int(float(self._v['pady']))+6,int(float(self._v['height'] or 0))*font.metrics('linespace'))
@@ -104,6 +123,9 @@ class CozyButton(tk.Button):
         if not self.winfo_exists():return
         from theme import theme,blend
         stamp=(self.winfo_width(),self.winfo_height(),tuple((k,str(v)) for k,v in self._v.items()),self._state,self._hovering,self._pressed,self.focus_get() is self,str(super().cget('font')),str(super().cget('background')),str(super().cget('foreground')),str(super().cget('activebackground')),str(super().cget('disabledforeground')),theme.accent,theme.c('shadow'))
+        from ui_skin import renderer_for
+        renderer=renderer_for(self)
+        if renderer:stamp+=(renderer.generation,renderer.box(self))
         if getattr(self,'_last_paint',None)==stamp:return
         self._last_paint=stamp
         w=self.winfo_width() if self.winfo_width()>1 else self._natural[0];h=self.winfo_height() if self.winfo_height()>1 else self._natural[1];disabled=self._state=='disabled'
@@ -113,38 +135,53 @@ class CozyButton(tk.Button):
         bg=rgb(bg);fg=rgb(fg)
         active=self._hovering and not disabled
         if active:bg=rgb(str(super().cget('activebackground')))
-        if self._pressed and not disabled:bg=blend(bg,theme.c('fg'),.08)
+        if self._pressed and not disabled:bg=blend(bg,getattr(self,'_fixed_ink',theme.c('fg')),.08)
         border=theme.accent if self.focus_get() is self else (theme.c('card_border') if not active else blend(theme.c('card_border'),theme.accent,.4))
         parent_bg=self.master.cget('background') if 'background' in self.master.keys() else theme.c('bg')
         kind=getattr(self,'_kind','normal')
-        border=theme.accent if self.focus_get() is self else bg
+        border=getattr(self,'_fixed_accent',theme.accent) if self.focus_get() is self else bg
         if kind in ('ghost','nav','plain') and not active and not self._pressed and self.focus_get() is not self:bg=parent_bg;border=bg
-        im=plate(w,h,bg,border,theme.c('shadow'),max(9,int(12*scale(self))),raised=False,base=parent_bg)
+        from ui_skin import background,tint
+        skin=background(self)
+        im=skin if skin is not None else plate(w,h,bg,border,theme.c('shadow'),max(9,int(12*scale(self))),raised=False,base=parent_bg)
+        if skin is not None:
+            im=skin
+            radius=max(9,int(12*scale(self)))
+            if getattr(self,'_kind','normal')=='accent':im=tint(im,bg,1,radius)
+            elif self._hovering or self._pressed or self.focus_get() is self:im=tint(im,bg,.24,radius,theme.accent if self.focus_get() is self else None)
+            elif bg not in (theme.c('bg'),theme.c('card')):im=tint(im,bg,.20,radius)
         # A restrained vertical highlight, clipped inside the rounded fill.
-        d=ImageDraw.Draw(im);font,text,image,iw,ih,tw,th,cw,ch,gap=self._content()
-        anchor=str(self._v['anchor']);x=int(float(self._v['padx']))+6 if anchor in ('w','nw','sw') else (w-cw)//2;y=(h-ch)//2+(1 if self._pressed else 0)
-        tx,ty=x,y;ix,iy=x,y;compound=self._v['compound']
-        if compound=='left':tx=x+iw+gap;iy=y+(ch-ih)//2;ty=y+(ch-th)//2
-        elif compound=='right':ix=x+tw+gap;iy=y+(ch-ih)//2;ty=y+(ch-th)//2
-        elif compound=='top':tx=x+(cw-tw)//2;ix=x+(cw-iw)//2;ty=y+ih+gap
-        elif compound=='bottom':tx=x+(cw-tw)//2;ix=x+(cw-iw)//2;iy=y+th+gap
-        else:tx=x+(cw-tw)//2;ix=x+(cw-iw)//2
-        if iw:
-            try:
-                source=ImageTk.getimage(image).convert('RGBA')
-                if disabled:
-                    tint=Image.new('RGBA',source.size,fg);tint.putalpha(source.getchannel('A'));source=tint
-                im.paste(source,(int(ix),int(iy)),source)
-            except (ValueError,tk.TclError,AttributeError):pass
-        if text:
-            pixels=abs(font.actual('size')) if font.actual('size')<0 else font.actual('size')*float(self.tk.call('tk','scaling'))
-            pf=pil_font(round(pixels),font.actual('weight')=='bold');lineheight=font.metrics('linespace')
-            for index,line in enumerate(text.split('\n')):
-                # Center the visible ink within its line box, including punctuation.
-                box=d.textbbox((0,0),line,font=pf)
-                ink_h=box[3]-box[1];ink_w=box[2]-box[0]
-                d.text((tx+(tw-ink_w)/2-box[0],ty+index*lineheight+(lineheight-ink_h)/2-box[1]),line,font=pf,fill=fg)
-        self._plate=ImageTk.PhotoImage(im,master=self);super().configure(image=self._plate,compound='none',text='')
+        base=im
+        ink_stamp=(w,h,tuple((k,str(v)) for k,v in self._v.items()),fg,str(super().cget('font')),disabled,self._pressed)
+        if getattr(self,'_ink_stamp',None)!=ink_stamp:
+            self._ink_stamp=ink_stamp;im=Image.new('RGBA',(w,h))
+            d=ImageDraw.Draw(im);font,text,image,iw,ih,tw,th,cw,ch,gap=self._content()
+            anchor=str(self._v['anchor']);x=int(float(self._v['padx']))+6 if anchor in ('w','nw','sw') else (w-cw)//2;y=(h-ch)//2+(1 if self._pressed else 0)
+            tx,ty=x,y;ix,iy=x,y;compound=self._v['compound']
+            if compound=='left':tx=x+iw+gap;iy=y+(ch-ih)//2;ty=y+(ch-th)//2
+            elif compound=='right':ix=x+tw+gap;iy=y+(ch-ih)//2;ty=y+(ch-th)//2
+            elif compound=='top':tx=x+(cw-tw)//2;ix=x+(cw-iw)//2;ty=y+ih+gap
+            elif compound=='bottom':tx=x+(cw-tw)//2;ix=x+(cw-iw)//2;iy=y+th+gap
+            else:tx=x+(cw-tw)//2;ix=x+(cw-iw)//2
+            if iw:
+                try:
+                    source=ImageTk.getimage(image).convert('RGBA')
+                    if disabled:
+                        tint=Image.new('RGBA',source.size,fg);tint.putalpha(source.getchannel('A'));source=tint
+                    im.paste(source,(int(ix),int(iy)),source)
+                except (ValueError,tk.TclError,AttributeError):pass
+            if text:
+                pixels=abs(font.actual('size')) if font.actual('size')<0 else font.actual('size')*float(self.tk.call('tk','scaling'))
+                pf=pil_font(round(pixels),font.actual('weight')=='bold');lineheight=font.metrics('linespace')
+                for index,line in enumerate(text.split('\n')):
+                    # Center the visible ink within its line box, including punctuation.
+                    box=d.textbbox((0,0),line,font=pf)
+                    ink_h=box[3]-box[1];ink_w=box[2]-box[0]
+                    d.text((tx+(tw-ink_w)/2-box[0],ty+index*lineheight+(lineheight-ink_h)/2-box[1]),line,font=pf,fill=fg)
+            self._ink=im
+        base.paste(self._ink,(0,0),self._ink);im=base
+        if getattr(self,'_plate',None) is not None and (self._plate.width(),self._plate.height())==im.size:self._plate.paste(im)
+        else:self._plate=ImageTk.PhotoImage(im,master=self);super().configure(image=self._plate,compound='none',text='')
 
 class CozyFrame(tk.Frame):
     """Rounded real child HWND, with a light surface and inset ambient shadow."""
@@ -161,6 +198,11 @@ class CozyFrame(tk.Frame):
     config=configure
     def _round(self,e=None):
         if self.winfo_width()<12 or self.winfo_height()<12:return
+        from ui_skin import renderer_for
+        renderer=renderer_for(self)
+        if renderer or getattr(getattr(self.winfo_toplevel(),'_skin_renderer',None),'_updating',False):
+            if renderer:renderer.schedule()
+            return
         from theme import theme
         key=(self.winfo_width(),self.winfo_height(),self.cget('background'),theme.c('card_border'),theme.c('shadow'))
         if self._surface_key==key:return
@@ -200,12 +242,13 @@ def nature_image(widget,width=116,height=46):
     return ImageTk.PhotoImage(im.resize((width,height),Image.Resampling.LANCZOS),master=widget)
 
 
-def cozy_icon(widget,name,size):
+def cozy_icon(widget,name,size,ink=None):
     """One rounded line vocabulary for action, time and utility icons."""
     from theme import theme
     color={'shutdown':'#D87561','restart':'#6EAB85','logoff':'#C7974C','lock':'#C7974C','sleep':'#8C8FCC','hibernate':'#8077A9','play_sound':'#A088BB'}.get(name,theme.accent)
     if name in ('pause','stop','clear','gear','pin','close','minimize'):color=theme.c('fg_dim')
     if name=='play':color=theme.c('accent_fg')
+    if ink:color=ink
     unit=4;im=Image.new('RGBA',(96,96));d=ImageDraw.Draw(im);weight=7
     def line(points,c=color,width=weight):
         pts=[(int(x*unit),int(y*unit)) for x,y in points];d.line(pts,fill=c,width=width,joint='curve')

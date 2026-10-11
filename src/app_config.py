@@ -35,6 +35,7 @@ M_DATETIME = "datetime"
 M_INTERVAL = "interval"
 
 DEFAULT_SETTINGS = {
+    "skin": "solid",
     "main_topmost": False,
     "float_enabled": False, "float_topmost": True, "float_opacity": 100,
     "float_x": 0, "float_y": 0, "float_positioned": False, "float_docked": False,
@@ -162,10 +163,14 @@ class Config(object):
                 recovered, notice = recover_corrupt(path)
                 if recovered is not None:self.data.update(recovered)
                 self.recovery_notice = notice
+        if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
 
     def save(self):
+        if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
         try:
@@ -195,6 +200,8 @@ class Config(object):
 
     def update(self, mapping):
         self.data.update(mapping)
+        if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
 

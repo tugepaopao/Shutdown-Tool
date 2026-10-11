@@ -29,9 +29,19 @@ def _main_opacity(window, alpha):
             # Return to an opaque native window after the hidden restore paint.
             # Keeping WS_EX_LAYERED on a fully opaque Tk window breaks GDI
             # move-copy on some multi-monitor drivers.
-            if style & 0x80000:u.SetWindowLongW(ctypes.c_void_p(hwnd),-20,style & ~0x80000)
-            window._main_opacity=255
-            u.RedrawWindow(ctypes.c_void_p(hwnd),None,None,0x185)
+            # Hide this one DWM surface while switching back to opaque GDI.
+            # Native child controls must finish painting before the first frame.
+            dwm=ctypes.windll.dwmapi;cloaked=ctypes.c_int(1)
+            dwm.DwmSetWindowAttribute.argtypes=[ctypes.c_void_p,ctypes.c_uint,ctypes.c_void_p,ctypes.c_uint]
+            hidden=dwm.DwmSetWindowAttribute(ctypes.c_void_p(hwnd),13,ctypes.byref(cloaked),4)==0
+            try:
+                if style & 0x80000:u.SetWindowLongW(ctypes.c_void_p(hwnd),-20,style & ~0x80000)
+                window._main_opacity=255
+                window.update_idletasks();u.RedrawWindow(ctypes.c_void_p(hwnd),None,None,0x185)
+                if hidden:dwm.DwmFlush()
+            finally:
+                if hidden:
+                    cloaked.value=0;dwm.DwmSetWindowAttribute(ctypes.c_void_p(hwnd),13,ctypes.byref(cloaked),4)
             return True
         if not style & 0x80000:
             u.SetWindowLongW(ctypes.c_void_p(hwnd),-20,style|0x80000)
@@ -44,6 +54,7 @@ def _main_opacity(window, alpha):
 
 def prepare_main(window):
     """主窗口先在不可见合成层完成绘制，再一次显示完整内容。"""
+    window._main_ready=False
     window._main_presenting=False
     window._main_present_after=None
     def unmap(event):
@@ -60,21 +71,30 @@ def prepare_main(window):
 
 def present_main(window):
     window._main_present_after=None
-    if window._main_presenting or not window.winfo_exists() or window.state()!='normal':return
+    if not getattr(window,'_main_ready',False) or window._main_presenting or not window.winfo_exists() or window.state()!='normal':return
     window._main_presenting=True
+    renderer=getattr(window,'_skin_renderer',None)
+    if renderer and renderer.active:
+        renderer._hold=True
+        if renderer.job:window.after_cancel(renderer.job);renderer.job=None
     try:
         disable_native_animation(window)
         u=ctypes.windll.user32
+        renderer=getattr(window,'_skin_renderer',None)
+        if renderer and renderer.active:
+            renderer._restore_size();window.update_idletasks()
         hwnd=u.GetAncestor(window.winfo_id(),2) or window.winfo_id()
         u.RedrawWindow(ctypes.c_void_p(hwnd),None,None,0x185)
         # update_idletasks 不处理所有原生 WM_PAINT；必须排空实际窗口事件。
         # 重入由 _main_presenting 隔离，期间计时与正常事件继续处理。
         window.update()
         window.update_idletasks()
+        if renderer and renderer.active:renderer.render();window.update_idletasks()
     except (AttributeError,tk.TclError,OSError):
         pass
     finally:
         window._main_presenting=False
+        if renderer and renderer.active:renderer._hold=False;renderer.schedule()
         try:
             if window.winfo_exists() and window.state()=='normal':
                 if not _main_opacity(window,255):
@@ -83,9 +103,12 @@ def present_main(window):
             pass
 
 
-def prepare(window):
+def prepare(window, caption=True):
     window.withdraw()
     window.configure(bg=theme.c('bg'))
+    if caption:
+        from ui_dialog_chrome import create
+        create(window)
     def mapped(event):
         if event.widget is not window:return
         owner=getattr(window._root(),'_theme_owner',None)

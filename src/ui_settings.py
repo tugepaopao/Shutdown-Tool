@@ -7,7 +7,7 @@ import tkinter as tk
 from ui_pc_controls import ControlPanel, PercentSlider
 from ui_window import prepare, show, button_grid
 import tkinter.font as tkfont
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from i18n import Texts,feature_text
 from ui_localize import messagebox
 
@@ -41,7 +41,7 @@ class SettingsWindow(tk.Toplevel):
         self.dirty = False
         self.title(self.T("set_title"))
         self.configure(bg=theme.c("bg"))
-        self.resizable(True, True)
+        self.resizable(False, False)
         self.transient(app.root)
 
         self.v = {}
@@ -110,7 +110,8 @@ class SettingsWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.update_idletasks()
-        self.minsize(self.winfo_reqwidth(),min(self.winfo_reqheight(),560))
+        width,height=self.winfo_reqwidth(),self.winfo_reqheight()
+        self.minsize(width,height);self.maxsize(width,height)
         self.geometry("+%d+%d" % (app.root.winfo_rootx() + 40, app.root.winfo_rooty() + 40))
         show(self);self.grab_set()
         self.focus_set()
@@ -158,6 +159,7 @@ class SettingsWindow(tk.Toplevel):
         self.v["toast_seconds"] = tk.StringVar(value=str(max(3, min(600, _toast))))
         self.v["language"] = tk.StringVar(value=str(c.get("language", "CHS")))
         self.v["accent"] = tk.StringVar(value=str(c.get("accent", "blue")))
+        self.v["skin"] = tk.StringVar(value=__import__("skins").valid(c.get("skin")))
         # v1.3.1：快捷预设最后两个按钮的时间（文本 "H:MM"，解析见 app_config.parse_hm）
         for key, dflt in (("quick_at_today", "22:00"),
                           ("quick_at_tomorrow", "08:00")):
@@ -195,8 +197,9 @@ class SettingsWindow(tk.Toplevel):
         enable_button(self.apply_btn, enabled)
 
     def _mark_dirty(self, *_a):
+        was_dirty=self.dirty
         self.dirty = True
-        if getattr(self, "apply_btn", None) is not None:
+        if not was_dirty and getattr(self, "apply_btn", None) is not None:
             enable_button(self.apply_btn, True)
 
     # ------------------------------------------------------------ 页面构建
@@ -333,50 +336,93 @@ class SettingsWindow(tk.Toplevel):
                  font=theme.font(delta=-1), anchor="w").pack(fill="x", padx=10, pady=(0, 6))
 
     def _build_appearance(self):
-        T=self.T
-        pad=self._page('appearance',T('set_appearance'))
-        group=_group(pad,T('set_accent_group'));group.pack(fill='x')
-        tk.Label(group,text=T('appearance_choose'),bg=theme.c('bg'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),anchor='w',wraplength=380,justify='left').pack(fill='x',padx=10,pady=(4,4))
-        grid=tk.Frame(group,bg=theme.c('bg'));grid.pack(fill='x',padx=8,pady=(0,6))
-        self.accent_names={}
-        for col in range(4):grid.columnconfigure(col,weight=1,uniform='colors')
-        for idx,key in enumerate(ACCENT_ORDER):
-            cell=tk.Frame(grid,bg=theme.c('bg'));cell.grid(row=idx//4,column=idx%4,sticky='ew',padx=4,pady=4)
-            ring=tk.Frame(cell,bg=theme.c('border'));ring.pack(fill='x')
-            sw=tk.Frame(ring,bg=ACCENTS[key],height=24,cursor='hand2');sw.pack(fill='x',padx=2,pady=2)
-            ring._theme_fixed=sw._theme_fixed=True
-            sw.bind('<Button-1>',lambda e,k=key:self._pick_accent(k))
-            name=tk.Label(cell,text=T('accent_'+key),bg=theme.c('bg'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),width=9,cursor='hand2');name.pack(fill='x')
-            name.bind('<Button-1>',lambda e,k=key:self._pick_accent(k));self.accent_names[key]=name;self.accent_rings[key]=ring
-        preview=_group(pad,T('appearance_preview'));preview.pack(fill='x',pady=(10,0))
-        self.preview_box=tk.Frame(preview,highlightthickness=1);self.preview_box.pack(fill='x',padx=10,pady=8)
-        self.preview_title=tk.Label(self.preview_box,font=theme.font(bold=True),anchor='w');self.preview_title.pack(fill='x',padx=10,pady=(8,6))
-        line=tk.Frame(self.preview_box);line.pack(fill='x',padx=8,pady=(0,8));line.columnconfigure(0,weight=1,uniform='preview');line.columnconfigure(1,weight=1,uniform='preview')
-        self.preview_card=tk.Label(line,text=T('appearance_card'),font=theme.font(delta=-1),pady=8,highlightthickness=1);self.preview_card.grid(row=0,column=0,sticky='ew',padx=2)
-        self.preview_action=tk.Label(line,text=T('appearance_selected'),font=theme.font(delta=-1),pady=8,highlightthickness=1);self.preview_action.grid(row=0,column=1,sticky='ew',padx=2)
-        self.preview_bar=tk.Frame(self.preview_box,height=4);self.preview_bar.pack(fill='x',padx=10,pady=(0,8))
-        from ui_transition import walk
-        for widget in walk(self.preview_box):widget._theme_fixed=True
-        note=_group(pad,T('appearance_about'));note.pack(fill='x',pady=(10,0))
-        tk.Label(note,text=T('appearance_note'),bg=theme.c('bg'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),justify='left',anchor='w',wraplength=380).pack(fill='x',padx=10,pady=(4,8))
+        from PIL import Image,ImageDraw,ImageTk
+        from ui_cozy import scale
+        import skins
+        T=self.T;pad=self._page('appearance',T('set_appearance'))
+        group=_group(pad,T('skin_group'));group.pack(fill='x')
+        tk.Label(group,text=T('skin_choose'),bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),anchor='w',wraplength=440,justify='left').pack(fill='x',padx=12,pady=(4,8))
+        modes=tk.Frame(group,bg=theme.c('card'));modes.pack(fill='x',padx=10,pady=(0,8));self.skin_mode_buttons={}
+        self._last_builtin=self.v['skin'].get() if self.v['skin'].get() in skins.PROFILES else 'violet'
+        for key in ('solid','builtin'):
+            b=flat_button(modes,skins.name(key,T.lang),lambda k=key:self._pick_skin(self._last_builtin if k=='builtin' else k),font=theme.font(),padx=8,pady=7)
+            b.pack(side='left',fill='x',expand=True,padx=3);self.skin_mode_buttons[key]=b
+        self.color_group=tk.Frame(group,bg=theme.c('card'))
+        self.color_label=tk.Label(self.color_group,bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(bold=True),anchor='w');self.color_label.pack(fill='x',padx=5,pady=(0,5))
+        colors=tk.Frame(self.color_group,bg=theme.c('card'));colors.pack(fill='x');self.color_buttons={};self.color_names={}
+        for i,key in enumerate(ACCENT_ORDER):
+            colors.columnconfigure(i%4,weight=1,uniform='swatches')
+            cell=tk.Frame(colors,bg=theme.c('card'));cell.grid(row=i//4,column=i%4,sticky='ew',padx=4,pady=3)
+            # Real flat color swatches never inherit a character skin's accent.
+            b=tk.Button(cell,command=lambda k=key:self._pick_accent(k),bg=ACCENTS[key],activebackground=ACCENTS[key],relief='flat',bd=0,highlightthickness=1,highlightbackground=theme.c('card_border'),height=1,takefocus=True)
+            b._theme_fixed=True;b.pack(fill='x',ipady=2);b.bind('<Return>',lambda e,k=key:self._pick_accent(k));self.color_buttons[key]=b
+            label=tk.Label(cell,bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(delta=-1));label.pack(fill='x',pady=(2,0));self.color_names[key]=label
+        self.color_preview=tk.Canvas(self.color_group,height=round(104*scale(self)),bd=0,highlightthickness=0,bg=theme.c('card'));self.color_preview._theme_fixed=True;self.color_preview.pack(fill='x',padx=4,pady=(10,4));self.color_preview.bind('<Configure>',lambda e:self._draw_color_preview())
+        self.gallery=tk.Frame(group,bg=theme.c('card'))
+        self.skin_tiles={};self.skin_photos={};self.skin_selected_photos={}
+        for col in range(4):self.gallery.columnconfigure(col,weight=1,uniform='skins')
+        for i,key in enumerate(skins.SKIN_ORDER):
+            image=skins.artwork(key).copy();image.thumbnail((round(82*scale(self)),round(119*scale(self))),Image.Resampling.LANCZOS)
+            self.skin_photos[key]=ImageTk.PhotoImage(image,master=self)
+            marked=image.copy();draw=ImageDraw.Draw(marked);cx=marked.width-10;cy=10;draw.ellipse((cx-8,cy-8,cx+8,cy+8),fill=skins.PROFILES[key][0]);draw.line([(cx-4,cy),(cx-1,cy+3),(cx+4,cy-3)],fill='white',width=2);self.skin_selected_photos[key]=ImageTk.PhotoImage(marked,master=self)
+            b=flat_button(self.gallery,skins.name(key,T.lang),lambda k=key:self._pick_skin(k),font=theme.font(delta=-1),padx=4,pady=5)
+            b.configure(image=self.skin_photos[key],compound='top');b.grid(row=i//4,column=i%4,sticky='ew',padx=4,pady=4);self.skin_tiles[key]=b
+        note=_group(pad,T('skin_about'));note.pack(fill='x',pady=(10,0))
+        self.skin_note=tk.Label(note,text=T('skin_note'),bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),justify='left',anchor='w',wraplength=440);self.skin_note.pack(fill='x',padx=12,pady=(4,10))
+        self._refresh_accent_rings()
+
+    @staticmethod
+    def _configure_changed(widget, **options):
+        changes={key:value for key,value in options.items() if str(widget.cget(key))!=str(value)}
+        if changes:widget.configure(**changes)
+
+    def _draw_color_preview(self):
+        from theme import palette_for
+        c=self.color_preview
+        if c.winfo_width()<2:return
+        key=self.v['accent'].get();p=palette_for(key);w=c.winfo_width();h=c.winfo_height();s=float(c.tk.call('tk','scaling'))/(96/72)
+        stamp=(key,self.T.lang,theme.font(),w,h,s)
+        if getattr(self,'_preview_stamp',None)==stamp:return
+        self._preview_stamp=stamp
+        self._configure_changed(c,bg=p['bg']);pad=round(10*s);half=w//2
+        # Keep existing canvas items: a pending color only changes their ink.
+        items=getattr(self,'_preview_items',None)
+        if items is None:
+            items=[c.create_text(0,0,anchor='w'),c.create_rectangle(0,0,0,0),c.create_text(0,0),c.create_rectangle(0,0,0,0),c.create_text(0,0),c.create_rectangle(0,0,0,0,outline='')]
+            self._preview_items=items
+        c.coords(items[0],pad,round(18*s));c.itemconfigure(items[0],text=self.T('skin_preview')+' · '+self.T('accent_'+key),fill=ACCENTS[key],font=theme.font(bold=True))
+        y=round(38*s);bottom=h-round(17*s)
+        for index,(left,right,color,text,ink) in enumerate([(pad,half-3,p['card'],self.T('skin_normal_card'),p['fg']),(half+3,w-pad,p['sel_row_bg'],self.T('skin_selected_card'),ACCENTS[key])]):
+            rect,label=items[1+index*2:3+index*2]
+            c.coords(rect,left,y,right,bottom);c.itemconfigure(rect,fill=color,outline=p['card_border'])
+            c.coords(label,(left+right)//2,(y+bottom)//2);c.itemconfigure(label,text=text,fill=ink,font=theme.font(delta=-1))
+        c.coords(items[-1],pad,h-round(8*s),w-pad,h-round(5*s));c.itemconfigure(items[-1],fill=ACCENTS[key])
+
+    def _pick_skin(self,key):
+        import skins
+        self.v['skin'].set(skins.valid(key))
+        if key in skins.PROFILES:self._last_builtin=key;self.v['accent'].set(skins.PROFILES[key][1])
         self._refresh_accent_rings()
 
     def _pick_accent(self,key):
-        self.v['accent'].set(key);self._refresh_accent_rings()
+        self.v['accent'].set(key);self._pick_skin('solid')
 
     def _refresh_accent_rings(self):
-        cur=self.v['accent'].get()
-        for key,ring in self.accent_rings.items():
-            ring.config(bg=ACCENTS[key] if key==cur else theme.c('border'))
-            self.accent_names[key].config(text=self.T('accent_'+key)+(' ✓' if key==cur else ''))
-        if hasattr(self,'preview_box'):
-            p=palette_for(cur);accent=ACCENTS[cur]
-            self.preview_box.config(bg=p['bg'],highlightbackground=p['card_border'])
-            for w in self.preview_box.winfo_children():w.config(bg=p['bg'])
-            self.preview_title.config(text=self.T('appearance_preview_name',name=self.T('accent_'+cur)),fg=accent,bg=p['bg'])
-            self.preview_card.config(bg=p['card'],fg=p['fg'],highlightbackground=p['card_border'])
-            self.preview_action.config(bg=p['sel_row_bg'],fg=p['sel_row_fg'],highlightbackground=accent)
-            self.preview_bar.config(bg=accent)
+        import skins
+        cur=skins.valid(self.v['skin'].get());mode='solid' if cur=='solid' else 'builtin'
+        for key,b in getattr(self,'skin_tiles',{}).items():self._configure_changed(b,text=skins.name(key,self.T.lang),image=self.skin_selected_photos[key] if key==cur else self.skin_photos[key],bg=theme.c('sel_row_bg' if key==cur else 'card'),activebackground=theme.c('hover'))
+        for key,b in getattr(self,'skin_mode_buttons',{}).items():self._configure_changed(b,text=skins.name(key,self.T.lang),bg=theme.c('sel_row_bg' if key==mode else 'card'))
+        if hasattr(self,'color_group'):
+            desired,other=(self.color_group,self.gallery) if mode=='solid' else (self.gallery,self.color_group)
+            # Same-mode selection must not unmap/repack the native child HWNDs.
+            if other.winfo_manager():other.pack_forget()
+            if not desired.winfo_manager():desired.pack(fill='x',padx=10 if mode=='solid' else 8,pady=(0,8 if mode=='solid' else 10))
+            self._configure_changed(self.color_label,text=self.T('skin_colors'))
+            for key,b in self.color_buttons.items():
+                self._configure_changed(b,bg=ACCENTS[key],activebackground=ACCENTS[key],highlightbackground=theme.c('card_border'))
+                self._configure_changed(self.color_names[key],text=self.T('accent_'+key)+(' ✓' if key==self.v['accent'].get() else ''))
+            self._draw_color_preview()
+        if hasattr(self,'skin_note'):self._configure_changed(self.skin_note,text=self.T('skin_note'))
 
     def _build_other(self):
         T = self.T

@@ -192,6 +192,13 @@ class App(object):
         from ui_floating import FloatingController
         self.floating = FloatingController(self)
         self._settle_fixed_main()
+        from ui_skin import SkinRenderer
+        self.skin_renderer=SkinRenderer(self);self.skin_renderer.apply()
+        # Initialization may map the HWND to measure native layout. Keep it
+        # hidden until the saved skin and all child surfaces are ready.
+        self.root._main_ready=True
+        from ui_window import present_main
+        present_main(self.root)
         if self.cfg.recovery_notice:self.root.after(1000,lambda:messagebox.showinfo(self.T('tip_title'),i18n.feature_text(self.T,self.cfg.recovery_notice),parent=self.root))
 
     # ================================================================ 图标 / 窗口装饰
@@ -262,6 +269,8 @@ class App(object):
         另外：先读一次当前属性值，已经对了就直接返回，
         免得每次重建界面、每次从托盘恢复都白白闪一下窗口。
         """
+        from ui_dialog_chrome import update
+        if update(win):return
         try:
             import ctypes
             u = ctypes.windll.user32
@@ -1893,18 +1902,25 @@ class App(object):
 
 
     def apply_settings(self):
-        """设置点「应用」时调用：外观类变更则重建界面。返回是否重建。"""
+        """设置点「应用」时调用：外观原位更新，保留控件与计时。返回是否重建。"""
         import ui_transition
         ui_transition.finish(self)
+        from ui_skin_transition import SkinFade
+        fade=SkinFade(self)
+        if hasattr(self,"skin_renderer"):
+            self.skin_renderer._hold=True;self.skin_renderer._updating=True
+            self.skin_renderer._localizing=self.T.lang!=self.cfg.get("language")
+            # Virtual text stays on its cached skin surface during localization;
+            # restoring native labels here would expose white blocks and reflow.
         old_palette, old_accent, old_dark = dict(theme.p), theme.accent, theme.is_dark
-        before = (theme.mode, theme.accent_key, theme.size_key, self.T.lang)
+        before = (theme.mode, theme.accent_key, theme.size_key, self.T.lang, getattr(theme,"skin_key",None))
         theme.load(self.cfg)
         self.T.set_language(self.cfg.get("language"))
-        after = (theme.mode, theme.accent_key, theme.size_key, self.T.lang)
+        after = (theme.mode, theme.accent_key, theme.size_key, self.T.lang, getattr(theme,"skin_key",None))
         if before[3]!=after[3]:
             from ui_localize import update_app
             update_app(self,before[3])
-        if after[:2] != before[:2]:ui_transition.animate(self,old_palette,old_accent,old_dark)
+        if after[:2] != before[:2] or after[4]!=before[4]:ui_transition.animate(self,old_palette,old_accent,old_dark,duration=0)
         else:theme.apply_ttk(self.root)
         self._refresh_preset_labels()
         awake=getattr(self,'display_awake',None)
@@ -1923,6 +1939,9 @@ class App(object):
         if hasattr(self,'_paint_pin'):self._paint_pin()
         if self.tray:
             self.tray.refresh()
+        if hasattr(self,"skin_renderer"):
+            self.skin_renderer.apply();self.skin_renderer._hold=False;self.skin_renderer._updating=False;self.skin_renderer._localizing=False;self.skin_renderer.schedule()
+        fade.start()
         return False
 
     def reload_texts(self):

@@ -114,3 +114,5 @@ def refresh(app):
             angle=math.radians(90-extent*index/steps);points.extend((16+13*math.cos(angle),16-13*math.sin(angle)))
         ring.create_line(*points,fill=theme.accent,width=4,capstyle='round',joinstyle='round',smooth=True)
     dot=app.summary_dot;dot.delete('all');dot.create_oval(1,2,9,10,outline='',fill=theme.c('fg_muted') if not running else ('#e3a533' if paused else '#26b850'))
+    renderer=getattr(app,'skin_renderer',None)
+    if renderer:renderer.canvas_backgrounds()

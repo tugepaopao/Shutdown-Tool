@@ -10,7 +10,7 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "1.7.4"
+VERSION = "1.7.11"
 BUILD_DATE = "2026-10-11"
 
 FEATURE_EN = {
@@ -1078,3 +1078,12 @@ _TEXTS['EN'].update(float_hint='Drag to move. Double-click to open the main wind
 _TEXTS['CHS'].update(tray_floating='悬浮倒计时',float_save_error='悬浮窗设置保存失败，已保留原状态。')
 _TEXTS['CHT'].update(tray_floating='浮動倒數計時',float_save_error='浮動視窗設定儲存失敗，已保留原狀態。')
 _TEXTS['EN'].update(tray_floating='Floating countdown',float_save_error='Could not save the countdown setting. The previous state was kept.')
+
+# v1.7.11: approved skin gallery replaces accent swatches.
+_TEXTS['CHS'].update(skin_group='皮肤',skin_choose='选择喜欢的皮肤，再点「应用」；切换不会中断正在运行的计时。',skin_about='皮肤说明',skin_note='八款人物皮肤会同步设置背景与按钮配色。主页面保持原有布局，浅色卡片与清晰输入框让操作文字易于阅读。')
+_TEXTS['CHT'].update(skin_group='外觀皮膚',skin_choose='選擇喜歡的皮膚，再按「套用」；切換不會中斷計時。',skin_about='皮膚說明',skin_note='八款人物皮膚同步設定背景與按鈕配色。主頁保持原有版面，淺色卡片與清晰輸入框讓文字易於閱讀。')
+_TEXTS['EN'].update(skin_group='Skins',skin_choose='Choose a skin, then click Apply. Switching keeps the current timer running.',skin_about='About skins',skin_note='Eight character skins coordinate the wallpaper and controls. The existing layout is preserved; light cards and clear input fields keep text readable.')
+
+_TEXTS['CHS'].update(skin_choose='选择「默认纯色」或「内置皮肤」，预览选中效果后点「应用」。',skin_note='默认纯色提供八种主题色与配色预览。内置皮肤提供八张原图，只在此模式显示。切换保留计时和任务；悬浮窗使用固定橙色与绿植配色。',skin_colors='主题色',skin_preview='配色预览',skin_normal_card='普通卡片',skin_selected_card='✓ 选中状态')
+_TEXTS['CHT'].update(skin_choose='選擇「預設純色」或「內建皮膚」，預覽後按「套用」。',skin_note='純色提供八種主題色與預覽。八張內建原圖只在皮膚模式顯示。切換保留計時與任務；懸浮窗維持橙色與綠植配色。',skin_colors='主題色',skin_preview='配色預覽',skin_normal_card='一般卡片',skin_selected_card='✓ 選取狀態')
+_TEXTS['EN'].update(skin_choose='Choose Solid colors or Built-in skins, preview your selection, then Apply.',skin_note='Solid mode offers eight colors and a palette preview. Eight artwork thumbnails appear only in Built-in skins. Timers and tasks are preserved; the floating countdown keeps its warm orange and green palette.',skin_colors='Theme colors',skin_preview='Palette preview',skin_normal_card='Normal card',skin_selected_card='✓ Selected')

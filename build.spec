@@ -18,6 +18,7 @@ a = Analysis(
         ('THIRD_PARTY_NOTICES.md', '.'),
         ('docs/licenses', 'licenses'),
         ('assets/ui', 'assets/ui'),
+        ('assets/skins', 'assets/skins'),
         # 图标母图 assets/power_source.png（透明底蓝色电源开关球）→ tools/make_icon.py 生成下面这批
         # 注意：母图本身不打进包里，只打生成好的成品图
         ('assets/icon.ico', 'assets'),        # 桌面 / 安装包 / 便携版文件图标

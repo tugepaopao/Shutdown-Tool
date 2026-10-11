@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from theme import theme, flat_button
-from ui_cozy import CozyFrame,nature_image
+from ui_cozy import CozyFrame
 
 
 THEMED_ICONS={'step1','step2','check','clock','sun','moon','enqueue','bolt','message','sliders'}
@@ -19,7 +19,20 @@ def icon(app,name,size=20):
 
 
 def set_icon(app,widget,name,size):
-    widget._theme_icon=(name,size);widget._theme_photo=icon(app,name,size);widget.config(image=widget._theme_photo)
+    widget._theme_icon=(name,size)
+    if getattr(widget,'_title_control',False) and __import__('skins').image_skin(app.cfg):
+        from ui_cozy import cozy_icon,scale
+        from PIL import Image,ImageTk,ImageFilter
+        cache=getattr(app,'_title_icon_cache',None)
+        if cache is None:app._title_icon_cache={};cache=app._title_icon_cache
+        pixels=round(size*scale(app.root));key=(name,pixels)
+        if key not in cache:
+            original=ImageTk.getimage(cozy_icon(app.root,name,pixels,ink='#FFFFFF')).convert('RGBA')
+            halo=Image.new('RGBA',original.size,'#444066');halo.putalpha(original.getchannel('A').filter(ImageFilter.MaxFilter(3)).point(lambda x:round(x*.6)))
+            cache[key]=ImageTk.PhotoImage(Image.alpha_composite(halo,original),master=app.root)
+        widget._theme_photo=cache[key]
+    else:widget._theme_photo=icon(app,name,size)
+    widget.config(image=widget._theme_photo)
 
 def refresh_icons(app):
     from ui_transition import walk
@@ -34,7 +47,6 @@ def heading(app, parent, step, text, settings=False):
     tk.Label(row, text=text, bg=theme.c('card'), fg=theme.accent,
              font=theme.font(bold=True), padx=7).pack(side='left')
     if settings:
-        art=tk.Label(row,bg=theme.c('card'));art._nature_photo=nature_image(art,96,38);art.configure(image=art._nature_photo);art.pack(side='right',padx=(4,6))
         app.header_bar = app.header_inner = row
         app.ver_badge = tk.Label(row, text='v'+str(app.cfg.get('_version', '')), bg=theme.c('bg'))
         app.header_hint = tk.Label(row)
@@ -45,7 +57,8 @@ def build_actions(app, parent):
     from ui_main import ACTION_ROWS
     heading(app, parent, 1, app.T('nav_actions'), True)
     body = tk.Frame(parent, bg=theme.c('card'))
-    body.pack(fill='x',padx=8,pady=(0,9))
+    from ui_cozy import scale
+    body.pack(fill='x',padx=(8,round(28*scale(body))),pady=(0,9))
     app.actions_box = app.actions_body = body
     app.hint_label = tk.Label(body)
     app.action_var = tk.StringVar(value=app.cfg.get('action'))
@@ -57,11 +70,10 @@ def build_actions(app, parent):
         grp.grid(row=i//2, column=i%2, sticky='ew', padx=(0, 4) if i%2==0 else (4, 0), pady=1)
         row = tk.Frame(grp, bg=theme.c('card')); row.pack(fill='x',padx=6,pady=3)
         ind = tk.Frame(row, width=0, bg=theme.c('card'))
-        rb = tk.Radiobutton(row, text='  '+app.T(key), image=icon(app, action, 23), compound='left',
-            value=action, variable=app.action_var, indicatoron=False, anchor='w',
-            font=theme.font(), bg=theme.c('card'), fg=theme.c('fg'),
-            selectcolor=theme.c('card'), bd=0, highlightthickness=0, padx=8, pady=3,
-            cursor='hand2', command=app._on_action_pick)
+        rb = flat_button(row, '  '+app.T(key),
+            lambda a=action:(app.action_var.set(a),app._on_action_pick()),kind='plain',
+            font=theme.font(),padx=2,pady=1)
+        rb.config(image=icon(app,action,23),compound='left',anchor='w',cursor='hand2')
         set_icon(app,rb,action,23)
         rb.pack(side='left', fill='x', expand=True)
         check = tk.Label(row, bg=theme.c('card'), width=20, image=icon(app, 'check', 17))
@@ -85,7 +97,6 @@ def paint_action(app, action, hover=False, selected=False):
     for w in row.winfo_children():
         w.config(bg=bg)
         if isinstance(w,(tk.Button,tk.Radiobutton)):w.config(activebackground=bg)
-    app.action_widgets[action].config(selectcolor=bg)
     set_icon(app,app.action_checks[action],'check' if selected else 'blank',17)
 
 
@@ -112,8 +123,10 @@ def build_timer(app, parent):
     inner.config(bg=theme.c('card'))
     panel=app.timer_panel; panel.config(bg=theme.c('card'))
     gp=app.preset_row.master
-    gp.config(text=app.T('quick_group'),highlightthickness=0,font=theme.font(bold=True),bg=theme.c('card'),fg=theme.c('fg_dim'))
+    gp.config(text='',highlightthickness=0,font=theme.font(bold=True),bg=theme.c('card'),fg=theme.c('fg_dim'))
     gp.pack_configure(pady=(0,8))
+    from ui_skin import QuickHeading
+    app.quick_heading=QuickHeading(gp,app);app.quick_heading.pack(fill='x',padx=4,pady=(2,2),before=app.preset_row)
     app.preset_row.config(bg=theme.c('card'));app.preset_row.pack_configure(padx=0,pady=(3,0))
     names=['clock','clock','clock','sun','moon','sliders']
     for b in app.preset_btns.values():b.destroy()
@@ -202,7 +215,7 @@ def measure(app):
         height=max(height,app.content_area.winfo_reqheight())
     app.mode_var.set(original);app._refresh_time_groups();app._refresh_mode_btns()
     app.root.update_idletasks()
-    return max(width,app.root.winfo_reqwidth())+24,app.root.winfo_reqheight()
+    return max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root)),app.root.winfo_reqheight()
 
 
 def build_ui(app):

@@ -252,7 +252,7 @@ class FadeMessageBox(tk.Toplevel):
     def __init__(self, master, title, text, seconds=15, on_close=None,
                  button_text=None, on_button=None, extra_buttons=None):
         tk.Toplevel.__init__(self, master)
-        prepare(self)
+        prepare(self, caption=False)
         self.on_close = on_close
         self.on_button = on_button
         self._button_clicked = False
