@@ -35,7 +35,7 @@ ACCENTS = {
     "blue":   "#3274D9",
     "teal":   "#13847E",
     "green":  "#268244",
-    "orange": "#B75F12",
+    "orange": "#C67127",
     "red":    "#C43F43",
     "pink":   "#B84072",
     "purple": "#7953BD",
@@ -44,7 +44,7 @@ ACCENTS = {
 ACCENT_ORDER = ["blue", "teal", "green", "orange", "red", "pink", "purple", "indigo"]
 
 # ------------------------------------------------------------------ 字号档位
-FONT_SIZE_MAP = {"small": 8, "normal": 9, "large": 10, "huge": 11}
+FONT_SIZE_MAP = {"small": 8, "normal": 10, "large": 10, "huge": 11}
 FONT_SIZE_ORDER = ["small", "normal", "large", "huge"]
 
 # ------------------------------------------------------------------ 调色板
@@ -186,19 +186,22 @@ def blend(c1, c2, t):
         return c1
 
 
+@__import__('functools').lru_cache(maxsize=16)
 def palette_for(accent_key):
     """方案B：每种主题色派生浅底、卡片、边框，正文保持足够对比度。"""
-    accent=ACCENTS.get(accent_key,ACCENTS['blue'])
+    accent=ACCENTS.get(accent_key,ACCENTS['orange'])
     p=dict(PALETTES['light'])
-    tints={'bg':.055,'card':.018,'header_bg':.035,'status_bg':.09,'hover':.12,
-           'select_bg':.17,'page_top':.085,'page_bot':.035,'nav_bg':.018,
-           'nav_active_bg':.14,'nav_hover_bg':.09,'card_border':.28,'divider':.18,
-           'shadow':.12,'badge_bg':.09,'sel_row_bg':.17,'head_bg':.095,
-           'alt_row_bg':.035,'scroll_bg':.06,'scroll_fg':.32,'backdrop_bg':.11}
-    p.update({key:blend('#FFFFFF',accent,t) for key,t in tints.items()})
-    p['border']=blend('#D9E2E6',accent,.24)
-    p['nav_active_fg']=p['sel_row_fg']=shade(accent,.82)
-    p['fg_muted']='#697A88'
+    p.update(fg='#493224',fg_dim='#796454',fg_muted='#8A7463',disabled='#A89480',input_fg='#493224',accent_fg='#FFFCF7',warn_bg='#FFF0D8',warn_fg='#85531C')
+    tints={'bg':.085,'card':.03,'header_bg':.085,'status_bg':.12,'hover':.17,
+           'select_bg':.22,'page_top':.06,'page_bot':.015,'nav_bg':.008,
+           'nav_active_bg':.14,'nav_hover_bg':.07,'card_border':.20,'divider':.12,
+           'shadow':.15,'badge_bg':.07,'sel_row_bg':.21,'head_bg':.06,
+           'alt_row_bg':.025,'scroll_bg':.035,'scroll_fg':.26,'backdrop_bg':.08}
+    p.update({key:blend('#FFF9F0' if key in ('bg','page_top','page_bot') else '#FFFCF7',accent,t) for key,t in tints.items()})
+    p['input_bg']='#FFFCF7';p['border']=blend('#EDDCC8',accent,.14)
+    p['shadow']=blend('#DED1BE',accent,.10)
+    p['status_fg']=p['fg_dim'];p['nav_fg']=p['fg_dim'];p['head_fg']=p['fg_dim']
+    p['nav_active_fg']=p['sel_row_fg']=shade(accent,.75)
     return p
 
 
@@ -208,13 +211,13 @@ class Theme(object):
     def __init__(self):
         self.mode_key = "light"      # light | dark | system（用户选择）
         self.mode = "light"          # 实际生效：light | dark
-        self.accent_key = "blue"
+        self.accent_key = "orange"
         self.size_key = "normal"
 
     # ---------------------------------------------------------- 读配置
     def load(self, cfg):
         self.mode_key = self.mode = "light"
-        self.accent_key = self._pick(cfg.get("accent"), ACCENT_ORDER, "blue")
+        self.accent_key = self._pick(cfg.get("accent"), ACCENT_ORDER, "orange")
         self.size_key = "normal"
         return self
 
@@ -459,7 +462,8 @@ def flat_button(parent, text, command=None, kind="normal", pady=5, padx=12,
         hover = p["hover"]
         border = p["card_border"]
 
-    btn = tk.Button(parent, text=text, command=command, bg=bg, fg=fg,
+    from ui_cozy import CozyButton
+    btn = CozyButton(parent, text=text, command=command, bg=bg, fg=fg,
                     activebackground=hover, activeforeground=fg,
                     relief="flat", bd=0, highlightthickness=1,
                     highlightbackground=border, highlightcolor=theme.accent,
@@ -545,7 +549,8 @@ def card_frame(parent, pad=0, bg=None):
     因此调用方应当在 pack 时留出 padx/pady，不要让它贴到窗口边缘。
     """
     p = theme.p
-    f = tk.Frame(parent, bg=bg or p["card"], bd=0,
+    from ui_cozy import CozyFrame
+    f = CozyFrame(parent, bg=bg or p["card"], bd=0,
                  highlightthickness=1,
                  highlightbackground=p["card_border"],
                  highlightcolor=p["card_border"])
@@ -564,7 +569,8 @@ def section_card(parent, title=None, desc=None, pad=14, wrap=520):
     卡片留白不一致（实测很容易做出一块宽一块窄的观感）。
     """
     p = theme.p
-    card = tk.Frame(parent, bg=p["card"], bd=0, highlightthickness=1,
+    from ui_cozy import CozyFrame
+    card = CozyFrame(parent, bg=p["card"], bd=0, highlightthickness=1,
                     highlightbackground=p["card_border"],
                     highlightcolor=p["card_border"])
     body = tk.Frame(card, bg=p["card"])

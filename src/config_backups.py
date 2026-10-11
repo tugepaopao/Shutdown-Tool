@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 KEEP=10
-EXCLUDED={'queue','pending_timer','autostart','templates','automations','float_x','float_y','float_positioned'}
+EXCLUDED={'queue','pending_timer','autostart','templates','automations','float_x','float_y','float_positioned','float_docked'}
 
 def validate_settings(data):
     from app_config import DEFAULT_SETTINGS

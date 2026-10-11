@@ -35,8 +35,9 @@ M_DATETIME = "datetime"
 M_INTERVAL = "interval"
 
 DEFAULT_SETTINGS = {
+    "main_topmost": False,
     "float_enabled": False, "float_topmost": True, "float_opacity": 100,
-    "float_x": 0, "float_y": 0, "float_positioned": False,
+    "float_x": 0, "float_y": 0, "float_positioned": False, "float_docked": False,
     'quick_day_offset': 1,
     'hotkeys_enabled': False,
     'hotkey_show': 'Ctrl+Alt+H',
@@ -64,7 +65,7 @@ DEFAULT_SETTINGS = {
     "language": "CHS",
     # 外观（主题色 / 字号 / 深浅色）
     "theme_mode": "light",          # light | dark | system
-    "accent": "blue",               # blue|teal|green|orange|red|pink|purple|indigo
+    "accent": "orange",               # blue|teal|green|orange|red|pink|purple|indigo
     "font_size": "normal",          # small | normal | large | huge
     # 其他设置
     "popup_at_10s": False,

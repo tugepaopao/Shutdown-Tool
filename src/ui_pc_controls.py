@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from theme import theme, flat_button
 from pc_controls import WindowsControls
+from ui_cozy import CozyFrame
 
 
 
@@ -157,9 +158,8 @@ class ControlPanel(tk.Frame):
         return label
 
     def _group(self, key):
-        group = tk.LabelFrame(self, text='   '+self.T(key)+'   ', font=theme.font(bold=True),
-            bg=theme.c('bg'), fg=theme.c('fg'), bd=0, highlightthickness=1,
-            highlightbackground=theme.c('card_border'), labelanchor='nw')
+        from ui_cozy import CozyGroup
+        group = CozyGroup(self,text=self.T(key))
         group.pack(fill='x', pady=(0, 10))
         self.labels.append((group, key))
         return group

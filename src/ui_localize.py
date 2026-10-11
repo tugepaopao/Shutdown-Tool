@@ -67,7 +67,7 @@ def update_app(app,old):
         for key in settings.nav.get_children():
             text=app.T(nav_keys[key]) if key in nav_keys else feature_text(app.T,'自动化与预览' if key=='automation' else '快捷键与通知')
             settings.nav.item(key,text='  '+text)
-        for item in LANGUAGE_FILES:settings.lang_tree.item(item['code'],values=(language_desc(item['code'],new),item['file'],AUTHOR))
+        for item in LANGUAGE_FILES if hasattr(settings,'lang_tree') else ():settings.lang_tree.item(item['code'],values=(language_desc(item['code'],new),item['file'],AUTHOR))
         settings._refresh_accent_rings()
     for log,code in log_kinds.items():
         from ui_log import KIND_KEYS

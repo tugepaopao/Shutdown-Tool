@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from theme import theme
+from ui_cozy import CozyFrame
 from ui_summary import ProgressStrip
 from system_metrics import Sampler,size
 
@@ -9,7 +10,7 @@ class MonitorPanel(tk.Frame):
     def __init__(self,parent,settings):
         super().__init__(parent,bg=theme.c('bg'));self.pack(fill='both',expand=True,padx=10,pady=10);self.settings=settings;self.sampler=None;self.poll_id=None;self.last={};self.labels={};self.bars={}
         for key in ('cpu','memory','disk','network','uptime'):
-            box=tk.Frame(self,bg=theme.c('card'),highlightthickness=1,highlightbackground=theme.c('card_border'));box.pack(fill='x',pady=(0,8))
+            box=CozyFrame(self,bg=theme.c('card'),highlightthickness=1,highlightbackground=theme.c('card_border'));box.pack(fill='x',pady=(0,8))
             row=tk.Frame(box,bg=theme.c('card'));row.pack(fill='x',padx=10,pady=(8,5))
             title=tk.Label(row,text=settings.T('mon_'+key),bg=theme.c('card'),fg=theme.c('fg'),font=theme.font(bold=True),anchor='w');title.pack(side='left')
             value=tk.Label(row,text='—',bg=theme.c('card'),fg=theme.accent,font=theme.font(),anchor='e');value.pack(side='right');self.labels[key]=value

@@ -18,17 +18,22 @@ check('counter reset cannot produce negative speed',system_metrics.rate(10,20,1)
 check('zero time guarded',system_metrics.rate(10,0,0)==0)
 check('position clamped after monitor removed',clamp_position(-1800,90,350,190,[(0,0,1920,1080)])==(0,90))
 check('negative monitor position supported',clamp_position(-1500,100,350,190,[(-1920,0,0,1080),(0,0,1920,1080)])==(-1500,100))
-with tempfile.TemporaryDirectory(prefix='v169-tests-') as folder:
+with tempfile.TemporaryDirectory(prefix='v174-tests-') as folder:
  os.environ['APPDATA']=folder;App._init_tray=lambda s:None;autostart.set_enabled=lambda *a:True
  app=App({'given':True,'action':'message'});app.cfg['confirm_on_exit']=False;app.root.report_callback_exception=lambda cls,exc,tb:errors.append(str(exc));app.cfg['resume_timer']=False
  def pump(seconds=.3):
   until=time.monotonic()+seconds
   while time.monotonic()<until:app.root.update();time.sleep(.01)
  def shot(w,name):
+  covered=[]
+  if w is app.root:
+   covered=[c for c in app.root.winfo_children() if c.winfo_class()=='Toplevel' and c.winfo_ismapped()]
+   for c in covered:c.grab_release();c.withdraw()
   hidden=app.floating.window if app.floating.window and w is not app.floating.window else None
   if hidden:hidden.withdraw()
   w.attributes('-topmost',True);w.lift();pump();(p/'tools/shots').mkdir(exist_ok=True);ImageGrab.grab(bbox=(w.winfo_rootx(),w.winfo_rooty(),w.winfo_rootx()+w.winfo_width(),w.winfo_rooty()+w.winfo_height()),all_screens=True).save(p/'tools/shots'/name)
   if hidden:hidden.deiconify()
+  for c in covered:c.deiconify();c.grab_set()
  try:
   check('floating default off',app.floating.window is None)
   main_children=list(app.root.winfo_children());settings=app.open_settings();pump()
@@ -37,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='v169-tests-') as folder:
   settings._show('monitor');pump(1.5);panel=settings.monitor_panel
   check('monitor shows real CPU/memory/disk',all(panel.last.get(k) is not None for k in ('cpu','memory','disk')))
   check('network real second sample',panel.last.get('download') is not None)
-  shot(settings,'v169-monitor-CHS.png');sampler=panel.sampler
+  shot(settings,'v174-monitor-CHS.png');sampler=panel.sampler
   settings._show('floating');pump();check('sampling stops when page changes',sampler.stop_event.is_set() and panel.sampler is None)
   settings.v['float_enabled'].set(True);settings.v['float_opacity'].set(65);settings.v['float_topmost'].set(True);settings.on_apply();pump();floating=app.floating.window
   check('Apply opens floating window',floating is not None and floating.winfo_exists())
@@ -48,27 +53,33 @@ with tempfile.TemporaryDirectory(prefix='v169-tests-') as folder:
   check('float follows existing timer',floating.clock.cget('text').startswith('00:01:'))
   floating.pause_timer();pump();before=app.engine.remaining();pump(.7);check('pause freezes existing timer',app.engine.paused and abs(app.engine.remaining()-before)<.1)
   check('paused text and resume button',floating.pause.cget('text')==app.T('btn_resume_s'))
-  app.cfg['float_opacity']=100;floating.refresh();shot(floating,'v169-floating-paused.png');floating.pause_timer();pump();check('resume works',not app.engine.paused)
+  app.cfg['float_opacity']=100;floating.refresh();shot(floating,'v174-floating-paused.png');floating.pause_timer();pump();check('resume works',not app.engine.paused)
   floating.move(-1500,100);floating.drag=(0,0,0,0);floating.end_drag(None);check('position is persisted',app.cfg.get('float_positioned'))
   app.root.withdraw();pump();check('float survives tray hide',floating.state()=='normal' and bool(ctypes.windll.user32.IsWindowVisible(floating.winfo_id())))
   app.root.deiconify();app.root.iconify();pump();check('float survives taskbar minimize',bool(ctypes.windll.user32.IsWindowVisible(floating.winfo_id())));app.root.deiconify();pump()
   app.task_queue=[{'action':'message','mode':'countdown','seconds':30}];floating.cancel_timer();pump();check('cancel only stops current timer',not app.engine.is_running() and len(app.task_queue)==1)
   for lang in ('CHS','CHT','EN'):
    app.cfg['language']=lang;app.apply_settings();pump();settings=app.open_settings();settings._show('monitor');pump(1.1)
-   shot(app.root,'v169-main-'+lang+'.png')
+   shot(app.root,'v174-main-'+lang+'.png')
    check('monitor nav translated '+lang,app.T('mon_title') in settings.nav.item('monitor','text'))
-   shot(settings,'v169-monitor-'+lang+'.png');settings._show('floating');pump();shot(settings,'v169-settings-floating-'+lang+'.png');settings.destroy();app._settings_win=None
+   shot(settings,'v174-monitor-'+lang+'.png');settings._show('floating');pump();shot(settings,'v174-settings-floating-'+lang+'.png');settings.destroy();app._settings_win=None
   app.cfg.update(dict(float_enabled=True,float_x=-1300,float_y=100));backup=Path(folder)/'backup.json';export_backup(app.cfg,backup);restored,_,_=read_backup(backup)
   check('backup accepts negative screen coordinates',restored['float_x']==-1300)
   check('import disables float and resets cross-device position',not restored['float_enabled'] and not restored['float_positioned'])
   app.cfg['float_enabled']=False;app.floating.apply();pump();check('disable destroys floating window',app.floating.window is None)
+  app.cfg['float_enabled']=True;app.floating.apply();pump();dock=app.floating.window
+  dock.move(300,0);dock.drag=(0,0,0,0);dock.end_drag(None);pump();check('top edge keeps full window',dock.winfo_height()==dock.panel_height and not app.cfg.get('float_docked'))
+  shot(dock,'v174-floating-top.png');dock.move(300,180);dock.save_position();check('drag position persists',app.cfg.get('float_positioned') and app.cfg.get('float_y')==180)
+  check('compact floating footprint',dock.panel_width<=round(265*dock.s) and dock.panel_height<=round(95*dock.s))
+  app.cfg['float_enabled']=False;app.floating.apply()
   try:validate_settings(dict(app.cfg.data,float_opacity=0));valid=True
   except ValueError:valid=False
   check('corrupt opacity cannot become invisible',not valid)
   scale=app.root.tk.call('tk','scaling');app.root.tk.call('tk','scaling',3.0);app.cfg['float_enabled']=True;app.floating.apply();pump();large=app.floating.window
   check('large DPI floating controls fit',large.winfo_height()>=large.winfo_reqheight() and large.winfo_width()>=large.winfo_reqwidth())
   app.cfg['float_enabled']=False;app.floating.apply();app.root.tk.call('tk','scaling',scale)
+  print('Callback errors:',errors,flush=True)
   check('no Tk callback errors',not errors)
  finally:
   app.cfg['float_enabled']=False;app.floating.close();app.engine.stop();app.desktop.close();app.root.destroy()
-(p/'tools/v169-widgets-results.json').write_text(json.dumps(dict(checks=checks,errors=errors),ensure_ascii=False,indent=2),encoding='utf-8')
+(p/'tools/v174-widgets-results.json').write_text(json.dumps(dict(checks=checks,errors=errors),ensure_ascii=False,indent=2),encoding='utf-8')

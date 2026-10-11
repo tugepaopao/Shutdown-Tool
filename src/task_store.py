@@ -157,7 +157,7 @@ def read_backup(path):
     from desktop_services import parse_hotkey
     for key in ('hotkey_show','hotkey_pause','hotkey_resume'):
         if key in settings:parse_hotkey(settings[key])
-    settings['float_positioned']=False
+    settings['float_positioned']=False;settings['float_docked']=False
     settings['float_enabled']=False
     settings['hotkeys_enabled']=False
     settings['keep_display_on']=False

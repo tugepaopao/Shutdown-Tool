@@ -10,8 +10,8 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "1.6.9"
-BUILD_DATE = "2026-10-09"
+VERSION = "1.7.4"
+BUILD_DATE = "2026-10-11"
 
 FEATURE_EN = {
     '任务管理':'Task management','设置与任务模板备份':'Settings and task backups',
@@ -62,7 +62,7 @@ LANGUAGE_FILES = [
 _TEXTS = {
     "CHS": {
         'sound_title': '播放声音',
-        'sound_builtin': '自行选择音频文件',
+        'sound_builtin': '内置音乐：孤寂绝尘',
         'sound_custom': '自选音频文件',
         'sound_browse': '选择文件',
         'sound_use_builtin': '使用内置音乐',
@@ -337,7 +337,7 @@ _TEXTS = {
     },
     "CHT": {
         'sound_title': '播放聲音',
-        'sound_builtin': '自行選擇音訊檔案',
+        'sound_builtin': '內建音樂：孤寂絕塵',
         'sound_custom': '自選音訊檔案',
         'sound_browse': '選擇檔案',
         'sound_use_builtin': '使用內建音樂',
@@ -1071,6 +1071,10 @@ _TEXTS['CHS']['float_info']='使用说明'
 _TEXTS['CHT']['float_info']='使用說明'
 _TEXTS['EN']['float_info']='How it works'
 
-_TEXTS['CHS']['tip_need_sound']='请先选择本地音频文件，公开版不附带内置音乐。'
-_TEXTS['CHT']['tip_need_sound']='請先選擇本機音訊檔案，公開版不附帶內建音樂。'
-_TEXTS['EN']['tip_need_sound']='Choose a local audio file first. This edition includes no music.'
+_TEXTS['CHS'].update(float_hint='拖动空白或时间移动；双击可打开主窗口。暂停／继续、取消仅作用于当前任务，取消不清空队列。',float_ready='就绪',float_short_running='计时中',float_short_paused='已暂停')
+_TEXTS['CHT'].update(float_hint='拖動空白或時間移動；雙擊開啟主視窗。暫停／繼續、取消只作用於目前任務，取消不清空佇列。',float_ready='就緒',float_short_running='計時中',float_short_paused='已暫停')
+_TEXTS['EN'].update(float_hint='Drag to move. Double-click to open the main window. Pause/resume and cancel control the current timer; cancel keeps the queue.',float_ready='Ready',float_short_running='Counting',float_short_paused='Paused')
+
+_TEXTS['CHS'].update(tray_floating='悬浮倒计时',float_save_error='悬浮窗设置保存失败，已保留原状态。')
+_TEXTS['CHT'].update(tray_floating='浮動倒數計時',float_save_error='浮動視窗設定儲存失敗，已保留原狀態。')
+_TEXTS['EN'].update(tray_floating='Floating countdown',float_save_error='Could not save the countdown setting. The previous state was kept.')

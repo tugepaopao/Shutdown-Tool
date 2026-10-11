@@ -191,6 +191,7 @@ class App(object):
             self.root.after(800,lambda e=str(exc):messagebox.showwarning(self.T('tip_title'),e,parent=self.root))
         from ui_floating import FloatingController
         self.floating = FloatingController(self)
+        self._settle_fixed_main()
         if self.cfg.recovery_notice:self.root.after(1000,lambda:messagebox.showinfo(self.T('tip_title'),i18n.feature_text(self.T,self.cfg.recovery_notice),parent=self.root))
 
     # ================================================================ 图标 / 窗口装饰
@@ -878,6 +879,9 @@ class App(object):
             无边框样式，所以这里改为「只清 MAXIMIZEBOX，并额外清掉
             WS_MAXIMIZE + 复核 MINIMIZEBOX 保留」，让系统按固定尺寸窗口渲染。
         """
+        if hasattr(self,'titlebar'):
+            from ui_titlebar import apply_chrome
+            apply_chrome(self.root)
         try:
             import ctypes
             u = ctypes.windll.user32
@@ -1097,6 +1101,7 @@ class App(object):
         self.progress["value"] = 0
         self._set_status("status_stopped")
         self._log(run_log.KIND_CANCEL, "log_stop_text")
+        if hasattr(self,'_paint_pin'):self._paint_pin()
         if self.tray:
             self.tray.refresh()
 
@@ -1126,6 +1131,7 @@ class App(object):
                 self._queue_win.refresh()
             except Exception:
                 pass
+        if hasattr(self,'_paint_pin'):self._paint_pin()
         if self.tray:
             self.tray.refresh()
 
@@ -1298,6 +1304,7 @@ class App(object):
         self.progress["value"] = 0
         self._set_status("status_cancelled")
         self._log(run_log.KIND_CANCEL, "log_cancel_text")
+        if hasattr(self,'_paint_pin'):self._paint_pin()
         if self.tray:
             self.tray.refresh()
 
@@ -1556,6 +1563,18 @@ class App(object):
             pass
 
     # ================================================================ 设置 / 关于
+    def toggle_floating(self):
+        previous=bool(self.cfg.get('float_enabled'));self.cfg['float_enabled']=not previous
+        if not self.cfg.save():
+            self.cfg['float_enabled']=previous
+            messagebox.showerror(self.T('tip_title'),self.T('float_save_error'),parent=self.root);return
+        self.floating.apply()
+        settings=getattr(self,'_settings_win',None)
+        if settings and settings.winfo_exists():
+            dirty=settings.dirty;settings.v['float_enabled'].set(not previous)
+            settings.dirty=dirty;settings._set_apply_enabled(dirty)
+        if self.tray:self.tray.refresh()
+
     def open_settings(self):
         from ui_settings import SettingsWindow
         win = self._settings_win
@@ -1895,12 +1914,13 @@ class App(object):
                 self.cfg['keep_display_on']=awake.enabled;self.cfg.save()
                 messagebox.showwarning(self.T('tip_title'),str(exc),parent=self.root)
         settings=getattr(self,'_settings_win',None)
-        if settings and settings.winfo_exists() and hasattr(settings,'pc_panel'):
+        if settings and settings.winfo_exists() and getattr(settings,'_pc_panel',None) is not None:
             settings.pc_panel.awake_var.set(bool(self.cfg.get('keep_display_on')))
         desktop=getattr(self,'desktop',None)
         if desktop:desktop.apply()
         floating=getattr(self,"floating",None)
         if floating:floating.apply()
+        if hasattr(self,'_paint_pin'):self._paint_pin()
         if self.tray:
             self.tray.refresh()
         return False

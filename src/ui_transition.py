@@ -56,7 +56,7 @@ def animate(app,old_palette,old_accent,old_dark,duration=360):
         theme._transition_accent=blend(old_accent,target_accent,eased)
         theme.apply_ttk(app.root)
         settings=getattr(app,'_settings_win',None)
-        if settings and settings.winfo_exists() and hasattr(settings,'pc_panel'):settings.pc_panel.retheme()
+        if settings and settings.winfo_exists() and getattr(settings,'_pc_panel',None) is not None:settings.pc_panel.retheme()
         from ui_compact import refresh_icons
         refresh_icons(app)
         app._last_transition_samples.append(blend(old_palette['bg'],target['bg'],eased))

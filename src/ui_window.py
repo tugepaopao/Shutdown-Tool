@@ -25,6 +25,14 @@ def _main_opacity(window, alpha):
         if u.GetWindowLongW(ctypes.c_void_p(hwnd),-16) & 0x40000000:
             return False  # WS_CHILD 永远不用于主窗口呈现层。
         style=u.GetWindowLongW(ctypes.c_void_p(hwnd),-20)
+        if alpha==255:
+            # Return to an opaque native window after the hidden restore paint.
+            # Keeping WS_EX_LAYERED on a fully opaque Tk window breaks GDI
+            # move-copy on some multi-monitor drivers.
+            if style & 0x80000:u.SetWindowLongW(ctypes.c_void_p(hwnd),-20,style & ~0x80000)
+            window._main_opacity=255
+            u.RedrawWindow(ctypes.c_void_p(hwnd),None,None,0x185)
+            return True
         if not style & 0x80000:
             u.SetWindowLongW(ctypes.c_void_p(hwnd),-20,style|0x80000)
         ok=u.SetLayeredWindowAttributes(ctypes.c_void_p(hwnd),0,alpha,2)

@@ -27,12 +27,8 @@ def _group(parent, title):
     新版改成浅色描边 + 白底卡片，与主界面统一。
     仍然返回 LabelFrame，这样调用方 `pack` 的写法完全不用改。
     """
-    p = theme.p
-    return tk.LabelFrame(parent, text="   " + title + "   ", bg=p["bg"],
-                         fg=p["fg"], font=theme.font(bold=True), bd=0,
-                         relief="flat", labelanchor="nw", highlightthickness=1,
-                         highlightbackground=p["card_border"],
-                         highlightcolor=p["card_border"])
+    from ui_cozy import CozyGroup
+    return CozyGroup(parent,text=title)
 
 
 class SettingsWindow(tk.Toplevel):
@@ -45,7 +41,7 @@ class SettingsWindow(tk.Toplevel):
         self.dirty = False
         self.title(self.T("set_title"))
         self.configure(bg=theme.c("bg"))
-        self.resizable(False, False)
+        self.resizable(True, True)
         self.transient(app.root)
 
         self.v = {}
@@ -85,24 +81,19 @@ class SettingsWindow(tk.Toplevel):
         self.nav.bind("<<TreeviewSelect>>", self._on_nav)
 
         # ---- 右侧内容（v1.3.0：浅色描边取代原来硬朗的 solid 黑框）
-        self.right = tk.Frame(body, bg=theme.c("bg"), bd=0, relief="flat",
+        from ui_cozy import CozyFrame
+        self.right = CozyFrame(body, bg=theme.c("bg"), bd=0, relief="flat",
                               highlightthickness=1,
                               highlightbackground=theme.c("card_border"),
                               highlightcolor=theme.c("card_border"))
         self.right.pack(side="left", fill="both", expand=True, padx=(10, 0))
         self.pages = {}
-        self._build_general()
-        self._build_display()
-        self._build_appearance()
-        self._build_other()
-        self._build_tasks()
-        self._build_backup()
-        self._build_automation()
-        self._build_desktop()
-        self.pc_panel = ControlPanel(self._page("pc", self.T("pc_title")), self)
-        from ui_monitor import MonitorPanel
-        self.monitor_panel = MonitorPanel(self._page("monitor",self.T("mon_title")),self)
-        self._build_floating()
+        self._built_pages=set();self._pc_panel=None;self._monitor_panel=None
+        self._builders={key:getattr(self,'_build_'+key) for key in
+            ('general','display','appearance','other','tasks','backup','automation','desktop','floating')}
+        self._builders['pc']=self._build_pc
+        self._builders['monitor']=self._build_monitor
+        for key,title in pages:self._page(key,title)
         self._current = None
         self._show("general")
 
@@ -119,9 +110,34 @@ class SettingsWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.update_idletasks()
+        self.minsize(self.winfo_reqwidth(),min(self.winfo_reqheight(),560))
         self.geometry("+%d+%d" % (app.root.winfo_rootx() + 40, app.root.winfo_rooty() + 40))
         show(self);self.grab_set()
         self.focus_set()
+
+    def _build_pc(self):
+        self._pc_panel=ControlPanel(self._scroll_pages['pc'][1],self)
+    def _build_monitor(self):
+        from ui_monitor import MonitorPanel
+        self._monitor_panel=MonitorPanel(self._scroll_pages['monitor'][1],self)
+    @property
+    def pc_panel(self):
+        self._ensure_page('pc');return self._pc_panel
+    @property
+    def monitor_panel(self):
+        self._ensure_page('monitor');return self._monitor_panel
+    def _ensure_page(self,key):
+        if key in self._built_pages:return
+        self._builders[key]();self._built_pages.add(key)
+        from ui_localize import walk
+        from ui_cozy import CozyGroup
+        for group in list(walk(self.pages[key])):
+            if isinstance(group,CozyGroup):
+                for widget in walk(group):
+                    options=widget.configure();changes={}
+                    for option in ('background','activebackground','selectcolor'):
+                        if option in options and str(widget.cget(option))==theme.c('bg'):changes[option]=theme.c('card')
+                    if changes:widget.configure(**changes)
 
     # ------------------------------------------------------------ 变量初始化
     def _load_vars(self):
@@ -170,7 +186,7 @@ class SettingsWindow(tk.Toplevel):
         tk.Label(info,text=self.T('float_apply_hint'),bg=theme.c('bg'),fg=theme.c('fg'),font=theme.font(),wraplength=420,justify='left',anchor='w').pack(fill='x',padx=10,pady=(10,0))
         tk.Label(info,text=self.T('float_hint'),bg=theme.c('bg'),fg=theme.c('fg_dim'),font=theme.font(),wraplength=420,justify='left',anchor='w').pack(fill='x',padx=10,pady=10)
     def _reset_float(self):
-        self.cfg['float_positioned']=False;self.cfg.save()
+        self.cfg['float_positioned']=False;self.cfg['float_docked']=False;self.cfg.save()
         floating=getattr(self.app,'floating',None)
         if floating and floating.window:
             floating.window.destroy();floating.window=None;floating.apply()
@@ -185,20 +201,23 @@ class SettingsWindow(tk.Toplevel):
 
     # ------------------------------------------------------------ 页面构建
     def _page(self, key, title):
+        if key in self.pages:return self._scroll_pages[key][1]
         f = tk.Frame(self.right, bg=theme.c("bg"))
         self.pages[key] = f
-        head = tk.Label(f, text=title, bg=theme.accent, fg=theme.c("accent_fg"),
+        head = tk.Label(f, text=title.strip(), bg=theme.c("bg"), fg=theme.c("fg"),
                         font=theme.font(delta=3, bold=True), anchor="w")
-        head.pack(fill="x", ipady=6, padx=1, pady=1)
+        head.pack(fill="x", padx=0, pady=(8,8))
+        from ui_cozy import scale
+        page_width=round(470*scale(self))
         wrap=tk.Frame(f,bg=theme.c('bg'));wrap.pack(fill='both',expand=True)
-        canvas=tk.Canvas(wrap,bg=theme.c('bg'),highlightthickness=0,width=470,height=min(520,self.winfo_screenheight()-180))
+        canvas=tk.Canvas(wrap,bg=theme.c('bg'),highlightthickness=0,width=page_width,height=min(520,self.winfo_screenheight()-180))
         canvas.pack(side='left',fill='both',expand=True)
         gutter=tk.Frame(wrap,bg=theme.c('bg'),width=12,height=1);gutter.pack(side='right',fill='y');gutter.pack_propagate(False)
         scroll=ttk.Scrollbar(gutter,command=canvas.yview);scroll.pack(side='right',fill='y');canvas.config(yscrollcommand=scroll.set)
         gutter.configure(width=scroll.winfo_reqwidth())
         # Reserve a stable page viewport; hiding an unused scrollbar must not
         # resize the settings dialog when moving between pages.
-        wrap.configure(width=470+scroll.winfo_reqwidth(),height=min(520,self.winfo_screenheight()-180));wrap.pack_propagate(False)
+        wrap.configure(width=page_width+scroll.winfo_reqwidth(),height=min(520,self.winfo_screenheight()-180));wrap.pack_propagate(False)
         pad=tk.Frame(canvas,bg=theme.c('bg'));item=canvas.create_window(0,0,window=pad,anchor='nw')
         self._scroll_pages=getattr(self,'_scroll_pages',{})
         self._scroll_pages[key]=(canvas,pad,scroll,item)
@@ -310,7 +329,7 @@ class SettingsWindow(tk.Toplevel):
                 self.v["language"].set(sel[0])
 
         tv.bind("<<TreeviewSelect>>", _on_lang)
-        tk.Label(g3, text=T("set_lang_tip"), bg=theme.c("bg"), fg=theme.c("fg_muted"),
+        tk.Label(g3, text=T("set_lang_tip"), wraplength=420, justify="left", bg=theme.c("bg"), fg=theme.c("fg_muted"),
                  font=theme.font(delta=-1), anchor="w").pack(fill="x", padx=10, pady=(0, 6))
 
     def _build_appearance(self):
@@ -489,7 +508,8 @@ class SettingsWindow(tk.Toplevel):
 
     def sync_vars(self):
         for key,var in self.v.items():var.set(self.cfg.get(key))
-        self.day_box.current(self.v['quick_day_offset'].get());self.lang_tree.selection_set(self.v['language'].get())
+        if hasattr(self,'day_box'):self.day_box.current(self.v['quick_day_offset'].get())
+        if hasattr(self,'lang_tree'):self.lang_tree.selection_set(self.v['language'].get())
         self.dirty=False;self._set_apply_enabled(False);self._refresh_accent_rings()
 
     def _hm_row(self, parent, key, label, default):
@@ -555,13 +575,14 @@ class SettingsWindow(tk.Toplevel):
     def _show(self, key):
         if self._current == key:
             return
+        self._ensure_page(key)
         for k, frame in self.pages.items():
             if k == key:
                 frame.pack(fill="both", expand=True)
             else:
                 frame.pack_forget()
         self._current = key
-        self.monitor_panel.set_active(key=="monitor")
+        if self._monitor_panel:self._monitor_panel.set_active(key=="monitor")
         if hasattr(self,'_scroll_pages'):
             canvas,pad,scroll,item=self._scroll_pages[key];canvas.yview_moveto(0)
         if key == "pc": self.pc_panel.refresh()
@@ -602,7 +623,10 @@ class SettingsWindow(tk.Toplevel):
             except Exception:pass
             messagebox.showerror('操作未完成',str(exc),parent=self);return
         autostart.set_enabled(bool(self.cfg.get('autostart')))
-        self.app.apply_settings();self.pc_panel.retheme();self.monitor_panel.render();self.dirty=False
+        self.app.apply_settings()
+        if self._pc_panel:self._pc_panel.retheme()
+        if self._monitor_panel:self._monitor_panel.render()
+        self.dirty=False
         if self.cfg.backup_error:messagebox.showwarning(self.T('tip_title'),feature_text(self.T,'设置已保存，但自动备份失败：')+self.cfg.backup_error,parent=self)
         if close:self.destroy();return
         self._set_apply_enabled(False)

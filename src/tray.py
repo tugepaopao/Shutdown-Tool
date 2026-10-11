@@ -70,6 +70,8 @@ class TrayIcon(object):
             MenuItem(lambda item: T("tray_clear"), lambda: app.post(app.clear_timer)),
             Menu.SEPARATOR,
             MenuItem(lambda item: T("tray_settings"), lambda: app.post(app.open_settings)),
+            MenuItem(lambda item: T("tray_floating"), lambda: app.post(app.toggle_floating),
+                     checked=lambda item:bool(app.cfg.get("float_enabled"))),
             MenuItem(lambda item: T("tray_exit"), lambda: app.post(app.quit_app)),
         )
 
