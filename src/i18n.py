@@ -10,8 +10,8 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "1.7.11"
-BUILD_DATE = "2026-10-11"
+VERSION = "2.0"
+BUILD_DATE = "2026-10-15"
 
 FEATURE_EN = {
     '任务管理':'Task management','设置与任务模板备份':'Settings and task backups',
@@ -62,10 +62,8 @@ LANGUAGE_FILES = [
 _TEXTS = {
     "CHS": {
         'sound_title': '播放声音',
-        'sound_builtin': '内置音乐：孤寂绝尘',
         'sound_custom': '自选音频文件',
         'sound_browse': '选择文件',
-        'sound_use_builtin': '使用内置音乐',
         'set_tasks': '任务管理',
         'set_backup': '导入／导出',
         "app_name": APP_NAME_CHS,
@@ -337,10 +335,8 @@ _TEXTS = {
     },
     "CHT": {
         'sound_title': '播放聲音',
-        'sound_builtin': '內建音樂：孤寂絕塵',
         'sound_custom': '自選音訊檔案',
         'sound_browse': '選擇檔案',
-        'sound_use_builtin': '使用內建音樂',
         'set_tasks': '任務管理',
         'set_backup': '匯入／匯出',
         "app_name": APP_NAME_CHT,
@@ -607,10 +603,8 @@ _TEXTS = {
     },
     "EN": {
         'sound_title': 'Play sound',
-        'sound_builtin': 'Built-in music: Gu Ji Jue Chen',
         'sound_custom': 'Choose an audio file',
         'sound_browse': 'Browse',
-        'sound_use_builtin': 'Use built-in music',
         'set_tasks': 'Task management',
         'set_backup': 'Import / Export',
         "app_name": APP_NAME_EN,
@@ -911,7 +905,7 @@ _STRINGS = {
     'pc_missing': ('未检测到显示器，可连接后刷新', '未偵測到顯示器，連接後請重新偵測', 'No display found. Connect one and refresh'),
     'pc_unavailable': ('不支持调节，请检查显示器 DDC/CI 设置', '不支援調節，請檢查顯示器 DDC/CI 設定', 'Unavailable. Check the display DDC/CI setting'),
     'pc_audio_unavailable': ('未检测到可用的音频输出设备', '未偵測到可用的音訊輸出裝置', 'No available audio output device'),
-    'pc_live': ('拖动滑块即时调整，无需点击底部“应用”', '拖動滑桿即時調整，無需點擊底部「套用」', 'Sliders apply immediately; no need to click Apply'),
+    'pc_live': ('拖动滑块即时调整，无需点击“保存设置”', '拖動滑桿即時調整，無需點擊「儲存設定」', 'Sliders apply immediately; no need to click Save settings'),
     'pc_guide': ('使用说明', '使用說明', 'How it works'),
     'pc_guide_display': ('显示器按连接情况自动识别，不按分辨率区分', '顯示器依連接情況自動辨識，不以解析度區分', 'Displays are detected automatically, regardless of resolution'),
     'pc_guide_ddc': ('外接屏需开启 DDC/CI；不支持的设备仍会显示，但不可调节', '外接螢幕需開啟 DDC/CI；不支援的裝置仍會顯示，但不可調節', 'External displays require DDC/CI. Unsupported displays remain listed'),
@@ -931,9 +925,9 @@ for key, values in _STRINGS.items():
 
 # Keep the About identity independent from the public application title.
 for lang, name, contact in (
-    ('CHS', '豪崽子の自动关机工具', '联系方式'),
-    ('CHT', '豪崽子の自動關機工具', '聯絡方式'),
-    ('EN', 'Haozaizi Auto Shutdown Tool', 'Contact')):
+    ('CHS', '定时关机工具', '联系方式'),
+    ('CHT', '定時關機工具', '聯絡方式'),
+    ('EN', 'Scheduled Shutdown Tool', 'Contact')):
     _TEXTS[lang].update(about_app_name=name, about_contact=contact)
 
 
@@ -1061,11 +1055,11 @@ def weekday_names(lang):
         return ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
     return ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 
-_TEXTS['CHS'].update({'mon_title': '系统监控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '内存', 'mon_disk': '磁盘空间', 'mon_network': '网络速率', 'mon_uptime': '系统运行时长', 'mon_hint': '每秒刷新；磁盘显示已用空间，网络为全机收发速率。切换页面或关闭设置后停止采样，不保存监控历史。', 'float_title': '悬浮倒计时', 'float_enabled': '开启桌面悬浮倒计时', 'float_topmost': '保持悬浮窗置顶', 'float_opacity': '不透明度', 'float_hint': '拖动标题或时间可移动悬浮窗，位置自动记住。暂停／继续和取消只作用于当前计时；取消不会清空等待队列。无计时任务时显示就绪状态。', 'float_running': '正在计时 · 可拖动移动', 'float_paused': '已暂停 · 可继续', 'float_idle': '暂无计时任务', 'float_cancel': '取消当前任务', 'float_reset': '重置悬浮窗位置', 'float_apply_hint': '修改后点「应用」生效；关闭开关只隐藏悬浮窗，不会停止任务。'})
+_TEXTS['CHS'].update({'mon_title': '系统监控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '内存', 'mon_disk': '磁盘空间', 'mon_network': '网络速率', 'mon_uptime': '系统运行时长', 'mon_hint': '每秒刷新；磁盘显示已用空间，网络为全机收发速率。切换页面或关闭设置后停止采样，不保存监控历史。', 'float_title': '悬浮倒计时', 'float_enabled': '开启桌面悬浮倒计时', 'float_topmost': '保持悬浮窗置顶', 'float_opacity': '不透明度', 'float_hint': '拖动标题或时间可移动悬浮窗，位置自动记住。暂停／继续和取消只作用于当前计时；取消不会清空等待队列。无计时任务时显示就绪状态。', 'float_running': '正在计时 · 可拖动移动', 'float_paused': '已暂停 · 可继续', 'float_idle': '暂无计时任务', 'float_cancel': '取消当前任务', 'float_reset': '重置悬浮窗位置', 'float_apply_hint': '修改后点「保存设置」生效；关闭开关只隐藏悬浮窗，不会停止任务。'})
 
-_TEXTS['CHT'].update({'mon_title': '系統監控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '記憶體', 'mon_disk': '磁碟空間', 'mon_network': '網路速率', 'mon_uptime': '系統運行時長', 'mon_hint': '每秒更新；磁碟顯示已用空間，網路為全機收發速率。切換頁面或關閉設定後停止取樣，不保存監控歷史。', 'float_title': '浮動倒數計時', 'float_enabled': '開啟桌面浮動倒數計時', 'float_topmost': '保持浮動視窗置頂', 'float_opacity': '不透明度', 'float_hint': '拖動標題或時間可移動視窗，自動記住位置。暫停／繼續及取消只作用於目前計時；取消不清空等待佇列。沒有任務時顯示就緒。', 'float_running': '正在計時 · 可拖動移動', 'float_paused': '已暫停 · 可繼續', 'float_idle': '目前沒有計時任務', 'float_cancel': '取消目前任務', 'float_reset': '重設浮動視窗位置', 'float_apply_hint': '修改後按「套用」生效；關閉開關只隱藏視窗，不停止任務。'})
+_TEXTS['CHT'].update({'mon_title': '系統監控', 'mon_cpu': 'CPU 使用率', 'mon_memory': '記憶體', 'mon_disk': '磁碟空間', 'mon_network': '網路速率', 'mon_uptime': '系統運行時長', 'mon_hint': '每秒更新；磁碟顯示已用空間，網路為全機收發速率。切換頁面或關閉設定後停止取樣，不保存監控歷史。', 'float_title': '浮動倒數計時', 'float_enabled': '開啟桌面浮動倒數計時', 'float_topmost': '保持浮動視窗置頂', 'float_opacity': '不透明度', 'float_hint': '拖動標題或時間可移動視窗，自動記住位置。暫停／繼續及取消只作用於目前計時；取消不清空等待佇列。沒有任務時顯示就緒。', 'float_running': '正在計時 · 可拖動移動', 'float_paused': '已暫停 · 可繼續', 'float_idle': '目前沒有計時任務', 'float_cancel': '取消目前任務', 'float_reset': '重設浮動視窗位置', 'float_apply_hint': '修改後按「儲存設定」生效；關閉開關只隱藏視窗，不停止任務。'})
 
-_TEXTS['EN'].update({'mon_title': 'System monitor', 'mon_cpu': 'CPU usage', 'mon_memory': 'Memory', 'mon_disk': 'Disk space', 'mon_network': 'Network speed', 'mon_uptime': 'System uptime', 'mon_hint': 'Updates every second. Disk shows used space; network rates cover all adapters. Sampling stops when you leave this page or close Settings. No history is stored.', 'float_title': 'Floating countdown', 'float_enabled': 'Enable desktop countdown', 'float_topmost': 'Keep countdown on top', 'float_opacity': 'Opacity', 'float_hint': 'Drag the title or time to move; the position is saved. Pause/resume and cancel affect the current timer only. Cancel keeps the waiting queue. Idle state is shown when no timer is running.', 'float_running': 'Counting down · Drag to move', 'float_paused': 'Paused · Resume when ready', 'float_idle': 'No active timer', 'float_cancel': 'Cancel current task', 'float_reset': 'Reset window position', 'float_apply_hint': 'Click Apply to save changes. Disabling this window keeps the task running.'})
+_TEXTS['EN'].update({'mon_title': 'System monitor', 'mon_cpu': 'CPU usage', 'mon_memory': 'Memory', 'mon_disk': 'Disk space', 'mon_network': 'Network speed', 'mon_uptime': 'System uptime', 'mon_hint': 'Updates every second. Disk shows used space; network rates cover all adapters. Sampling stops when you leave this page or close Settings. No history is stored.', 'float_title': 'Floating countdown', 'float_enabled': 'Enable desktop countdown', 'float_topmost': 'Keep countdown on top', 'float_opacity': 'Opacity', 'float_hint': 'Drag the title or time to move; the position is saved. Pause/resume and cancel affect the current timer only. Cancel keeps the waiting queue. Idle state is shown when no timer is running.', 'float_running': 'Counting down · Drag to move', 'float_paused': 'Paused · Resume when ready', 'float_idle': 'No active timer', 'float_cancel': 'Cancel current task', 'float_reset': 'Reset window position', 'float_apply_hint': 'Click Save settings to apply changes. Disabling this window keeps the task running.'})
 
 _TEXTS['CHS']['float_info']='使用说明'
 _TEXTS['CHT']['float_info']='使用說明'

@@ -336,9 +336,14 @@ class Theme(object):
                             background=p["card"], foreground=p["input_fg"],
                             arrowcolor=p["fg_dim"], bordercolor=p["card_border"],
                             lightcolor=p["card_border"], darkcolor=p["card_border"],
-                            selectbackground=p["select_bg"], selectforeground=p["fg"],
+                            selectbackground=p["input_bg"], selectforeground=p["input_fg"],
                             padding=(6, 3))
+            if not getattr(root,"_natural_combobox_binding",False):
+                root.bind_class("TCombobox", "<<ComboboxSelected>>", lambda e: e.widget.selection_clear(), add="+")
+                root._natural_combobox_binding=True
             style.map("TCombobox",
+                      selectbackground=[("readonly",p["input_bg"])],
+                      selectforeground=[("readonly",p["input_fg"])],
                       fieldbackground=[("readonly", p["input_bg"]),
                                        ("disabled", p["bg"])],
                       foreground=[("readonly", p["input_fg"]),

@@ -17,12 +17,17 @@ def validate_settings(data):
         if key not in DEFAULT_SETTINGS:continue
         default=DEFAULT_SETTINGS[key]
         if type(value) is not type(default):raise ValueError('配置字段类型错误：'+key)
-    for key,allowed in {'skin':set(__import__('skins').SKIN_CHOICES)|{'custom'},'language':{'CHS','CHT','EN'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'}}.items():
+    for key,allowed in {'skin':set(__import__('skins').ACCEPTED_SKINS),'language':{'CHS','CHT','EN'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'}}.items():
         if key in data and data[key] not in allowed:raise ValueError('配置字段值错误：'+key)
     if not 0<=data.get('quick_day_offset',1)<=7:raise ValueError('自定义预设日期越界')
     if not 40<=data.get('float_opacity',90)<=100:raise ValueError('悬浮窗不透明度越界')
     if any(abs(data.get(k,0))>200000 for k in ('float_x','float_y')):raise ValueError('悬浮窗位置越界')
     if any(len(data.get(k,[]))>200 for k in ('queue','templates','automations')):raise ValueError('任务数量超过上限')
+    if data.get('warning_seconds',10) not in (10,30,60):raise ValueError('提醒提前量无效')
+    if data.get('resume_strategy','ask') not in ('ask','paused','continue','off'):raise ValueError('恢复方式无效')
+    if data.get('quick_presets'):
+        from quick_presets import validate
+        validate(data['quick_presets'])
     from task_store import normalize
     for key in ('queue','templates','automations'):
         for item in data.get(key,[]):normalize(item)

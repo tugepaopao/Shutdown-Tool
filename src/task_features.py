@@ -13,11 +13,12 @@ def current_task(app):
     return snapshot(task,app.cfg)
 
 def start_current(app):
-    from tkinter import messagebox
+    from ui_localize import messagebox
     try:task=current_task(app)
     except (ValueError,TypeError) as exc:
         messagebox.showinfo(app.T('tip_title'),str(exc),parent=app.root);return
     if not app._validate_action(task['action']):return
+    app.engine.warning_seconds=int(app.cfg.get("warning_seconds",10))
     app._save_time_fields();app._active_task=task
     target=None
     if task['mode']=='datetime':
@@ -30,7 +31,7 @@ def start_current(app):
     app._set_running_ui(True);app._log_setup(task,target=target)
 
 def enqueue_current(app):
-    from tkinter import messagebox
+    from ui_localize import messagebox
     try:
         task=current_task(app);app._save_time_fields();enqueue(app,task,start=True)
         app._log('info','log_queue_text',a=app.describe_action(task),w=app.describe_when(task))
@@ -38,6 +39,8 @@ def enqueue_current(app):
 
 def refresh_queue(app):
     app._save_queue()
+    from ui_summary import refresh
+    refresh(app)
     if not app.cfg.save():raise OSError('队列保存失败')
     if app._queue_win and app._queue_win.winfo_exists():app._queue_win.refresh()
 
@@ -122,11 +125,20 @@ def save_pending(app):
 
 def resume_pending(app):
     pending=app.cfg.get('pending_timer') or {};app.cfg['pending_timer']={};app.cfg.save()
-    if not pending or not app.cfg.get('resume_timer',True) or app.engine.is_running() or app.cli.get('given'):return
+    strategy=app.cfg.get('resume_strategy','continue')
+    if not pending or strategy=='off' or not app.cfg.get('resume_timer',True) or app.engine.is_running() or app.cli.get('given'):return
     try:
         remaining=float(pending.get('remaining',0)) if pending.get('paused') else float(pending.get('deadline',0))-time.time()
         if remaining<=1:
             app._log('info','log_missed_text');return
+        pause_recovery=strategy=='paused'
+        if strategy=='ask':
+            from ui_localize import messagebox
+            choice=messagebox.askyesnocancel('恢复上次定时？','继续上次未完成的定时，或先暂停后再决定。',parent=app.root,default='cancel',labels={'yes':'继续计时','no':'恢复为暂停','cancel':'不恢复'})
+            if choice is None:return
+            pause_recovery=not choice
+            if not pending.get('paused'):remaining=float(pending.get('deadline',0))-time.time()
+            if remaining<=1:app._log('info','log_missed_text');return
         task=snapshot(pending,app.cfg)
         # 恢复对应队列项，避免重开后同一个任务又从队列头执行一次。
         active=next((t for t in app.task_queue if {k:v for k,v in t.items() if k!='id'}=={k:v for k,v in task.items() if k!='id'}),None) if pending.get('queued') else None
@@ -135,7 +147,7 @@ def resume_pending(app):
         if pending.get('engine_mode')=='interval' or task['mode']=='interval':
             with app.engine._lock:
                 app.engine._mode='interval';app.engine._interval=float(pending.get('interval_seconds',task['seconds']))
-        if pending.get('paused'):app.engine.pause()
+        if pending.get('paused') or pause_recovery:app.engine.pause()
         app._set_running_ui(True);app._log('info','log_resume_text',a=app.describe_action(task),w=format_remain(remaining,app.T))
     except (ValueError,TypeError,KeyError) as exc:
         app._log('error','log_missed_text',detail=str(exc))

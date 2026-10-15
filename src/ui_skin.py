@@ -37,7 +37,7 @@ class SkinRenderer:
   self.root.bind('<Map>',self._mapped,add='+');self.root.bind('<Configure>',self._root_change,add='+');self.root.bind('<Destroy>',self._destroy,add='+')
  def _mapped(self,event):
   if event.widget is self.root:
-   self.root.after_idle(self._restore_size);self.schedule()
+   if not getattr(self.root,'_main_ready',False):self.root.after_idle(self._restore_size);self.schedule()
  def _restore_size(self):
   if not self.active or not self.root.winfo_exists() or self.root.state()!='normal':return
   # Tk may reintroduce its old non-client height when restored from taskbar.
@@ -47,12 +47,30 @@ class SkinRenderer:
   from ui_titlebar import apply_chrome
   apply_chrome(self.root);u=ctypes.windll.user32;hwnd=u.GetAncestor(self.root.winfo_id(),2);rect=W.RECT();u.GetWindowRect(ctypes.c_void_p(hwnd),ctypes.byref(rect))
   if (rect.right-rect.left,rect.bottom-rect.top)!=self.fixed_size:
+   # Hide only a wrapper that actually needs resizing, so intermediate Tk
+   # geometry never flashes; ordinary restores keep the opaque cached surface.
+   if getattr(self.root,'_main_presented',False):
+    from ui_window import _main_opacity
+    _main_opacity(self.root,0)
    width,height=self.fixed_size
+   request=getattr(self,'_restored_request',None)
+   if request is not None:
+    # Reuse the measured Tk/non-client offset, checking for wrapper changes.
+    # Invalidate Tk's identical-request shortcut without an intermediate layout.
+    self.root.geometry('')
+    self.root.geometry(f'{request[0]}x{request[1]}')
+    self.root.update_idletasks();apply_chrome(self.root)
+    u.GetWindowRect(ctypes.c_void_p(hwnd),ctypes.byref(rect))
+    if (rect.right-rect.left,rect.bottom-rect.top)==self.fixed_size:
+     self.schedule();return
+   # Tk can change its cached border offset when recreating the wrapper.
+   # Recalibrate only when the cached request no longer fits the actual HWND.
    self.root.minsize(1,1);self.root.maxsize(10000,10000)
    self.root.geometry(f'{width}x{height}');self.root.update_idletasks()
    request_w=width-(self.root.winfo_width()-width);request_h=height-(self.root.winfo_height()-height)
    self.root.geometry(f'{request_w}x{request_h}');self.root.minsize(request_w,request_h);self.root.maxsize(request_w,request_h)
    self.root.update_idletasks();apply_chrome(self.root)
+   self._restored_request=(request_w,request_h)
   self.schedule()
  def _destroy(self,event):
   if event.widget is self.root and self.job:
@@ -141,7 +159,8 @@ class SkinRenderer:
   layer=Image.new('RGBA',size);d=ImageDraw.Draw(layer)
   frames=list(self.app.pages.values())+[self.app.sbar]
   for frame in frames:
-   if not frame.winfo_ismapped():continue
+   # Native iconify temporarily unmaps children; their packed layout remains.
+   if not frame.winfo_manager():continue
    box=self.box(frame);radius=round(19*scale(frame))
    if self.has_picture and frame is self.app.pages.get('actions'):
     # A horizontal wash protects the text on the left without hiding the portrait.
@@ -154,7 +173,7 @@ class SkinRenderer:
     d.rounded_rectangle(box,radius=radius,outline=(255,255,255,155),width=1)
    else:
     from PIL import ImageColor
-    color=ImageColor.getrgb(theme.c('card'));d.rounded_rectangle(box,radius=radius,fill=color+(152 if self.has_picture else 255,),outline=(255,255,255,155) if self.has_picture else None,width=1)
+    color=ImageColor.getrgb(theme.c('card'));d.rounded_rectangle(box,radius=radius,fill=color+(112 if self.has_picture else 255,),outline=(255,255,255,155) if self.has_picture else None,width=1)
   selected=self.app.action_var.get()
   if selected in self.app.action_row_frames:
    frame=self.app.action_row_frames[selected][0];from PIL import ImageColor
@@ -163,10 +182,16 @@ class SkinRenderer:
  def render(self,force=False):
   self.job=None
   if not self.active or not self.root.winfo_exists() or self.root.state()!='normal':return
+  from ui_native_restore import pending
+  if pending(self.root):return
+  # Native restore can report normal before Tk receives its full client size.
+  # Keep the completed scene through that transient zero/partial layout.
+  if (self.root.winfo_width(),self.root.winfo_height())!=self.fixed_size:
+   self.schedule();return
   self._boxes={};self._root_position=(self.root.winfo_rootx(),self.root.winfo_rooty())
   # No image work on drag: the positions below are relative to the main client.
   selected=self.app.action_var.get();selected_box=self.box(self.app.action_row_frames[selected][0]) if selected in self.app.action_row_frames else None
-  stamp=(self.key,theme.accent,self.root.winfo_width(),self.root.winfo_height(),selected,selected_box,tuple((self.box(f),bool(f.winfo_ismapped())) for f in list(self.app.pages.values())+[self.app.sbar]))
+  stamp=(self.key,theme.accent,self.root.winfo_width(),self.root.winfo_height(),selected,selected_box,tuple((self.box(f),bool(f.winfo_manager())) for f in list(self.app.pages.values())+[self.app.sbar]))
   if force or getattr(self,'_scene_stamp',None)!=stamp:
    self._scene_stamp=stamp;self.scene=self._compose();self.generation+=1
   if getattr(self,"_defer_paint",False):return

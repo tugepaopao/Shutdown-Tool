@@ -63,12 +63,12 @@ def update_app(app,old):
     app._refresh_preset_labels();app._set_status(status_key,**status_kw);app._set_running_ui(app.engine.is_running())
     settings=getattr(app,'_settings_win',None)
     if settings and settings.winfo_exists():
-        nav_keys={'general':'set_general','display':'set_display','appearance':'set_appearance','other':'set_other','tasks':'set_tasks','backup':'set_backup','pc':'pc_title','monitor':'mon_title','floating':'float_title'}
-        for key in settings.nav.get_children():
+        if hasattr(settings,'retranslate'):settings.retranslate(app.T)
+        nav_keys={'general':'set_general','display':'set_display','other':'set_other','tasks':'set_tasks','backup':'set_backup','pc':'pc_title','floating':'float_title'}
+        for key in settings.nav.get_children() if not hasattr(settings,'retranslate') else ():
             text=app.T(nav_keys[key]) if key in nav_keys else feature_text(app.T,'自动化与预览' if key=='automation' else '快捷键与通知')
             settings.nav.item(key,text='  '+text)
         for item in LANGUAGE_FILES if hasattr(settings,'lang_tree') else ():settings.lang_tree.item(item['code'],values=(language_desc(item['code'],new),item['file'],AUTHOR))
-        settings._refresh_accent_rings()
     for log,code in log_kinds.items():
         from ui_log import KIND_KEYS
         log.kind_values={feature_text(app.T,'全部'):''};log.kind_values.update({app.T(v):k for k,v in KIND_KEYS.items()})
@@ -80,8 +80,7 @@ def update_app(app,old):
 
 class LocalDialogs:
     def __getattr__(self,name):
-        from tkinter import messagebox
-        original=getattr(messagebox,name)
+        from ui_messagebox import invoke
         def call(title=None,message=None,**kwargs):
             parent=kwargs.get('parent');T=None
             if parent:
@@ -89,6 +88,6 @@ class LocalDialogs:
             if T:
                 title=translate(str(title or ''),'CHS',T.lang);message=translate(str(message or ''),'CHS',T.lang)
                 title=feature_text(T,title);message=feature_text(T,message)
-            return original(title,message,**kwargs)
+            return invoke(name,title,message,**kwargs)
         return call
 messagebox=LocalDialogs()

@@ -73,6 +73,7 @@ def feature(T,text):
     from i18n import FEATURE_EN
     if text in EN:return EN[text]
     if text in FEATURE_EN:return FEATURE_EN[text]
+    if text.startswith('快捷键已被其他程序占用：'):return 'Shortcut is already in use: '+text.split('：',1)[1]
     if text.startswith('延后') and text.endswith('分钟'):return 'Postpone '+text[2:-2]+' min'
     if text.endswith('天后') and text[:-2].isdigit():return 'In '+text[:-2]+' days'
     if text.startswith('等待 '):return 'Waiting '+text[3:]
@@ -85,3 +86,41 @@ EN.update({'指定星期（单次）':'Selected weekday (once)','循环间隔':'
 EN.update({'定点执行（单次）': 'At a set time (once)', '请选择要关闭的程序 exe 文件': 'Select the exe of the program to close', '不能选择本工具或系统关键程序': 'This tool and critical system programs cannot be selected', '目标程序没有可关闭的窗口，请确认程序正在运行': 'No closeable window found; check that the program is running', '程序仍在运行，可能正在等待保存、取消退出或收进托盘': 'Program is still running; it may be waiting to save, have cancelled exit or be in the tray', '关闭请求被系统拒绝，请检查目标程序权限': 'Close request denied; check target permissions', '无法访问目标程序，请检查权限': 'Cannot access the target program; check permissions', '旧版关闭显示器任务已停用，请选择其他操作': 'Legacy display-off tasks are disabled; select another action'})
 
 EN.update({'目标程序当前没有运行': 'The target program is not running', '部分进程无法结束，请以管理员身份运行本工具后重试': 'Some processes could not be ended; run this tool as administrator and retry', '已跳过系统关键进程或本工具，未全部结束': 'Protected system or tool processes were skipped; not all processes ended', '程序仍有进程运行或被其他软件重新启动，请重试': 'Some processes remain or another program restarted the app; retry'})
+
+EN.update({
+'通用与启动':'General & startup','提醒与通知':'Reminders & notifications','界面与悬浮':'Interface & floating','任务与预设':'Tasks & presets','备份与诊断':'Backup & diagnostics',
+'保存设置':'Save settings','放弃更改':'Discard changes','已保存':'Saved','已修改 {n} 项':'{n} changes unsaved','保存后生效':'Apply after saving','立即生效':'Apply immediately',
+'开启':'On','窗口行为':'Window behavior','最小化：回到任务栏':'Minimize: keep in taskbar','关闭主窗口时隐藏到托盘':'Hide to tray when closing the main window','按 Esc 最小化到任务栏':'Esc minimizes to taskbar',
+'启动与恢复':'Startup & recovery','重开后的定时恢复':'Timer recovery on reopening','询问恢复':'Ask before restoring','恢复为暂停':'Restore paused','直接继续':'Continue timer','不恢复':'Do not restore','操作确认':'Action confirmation',
+'语言':'Language','显示语言':'Display language','简体中文':'Simplified Chinese','繁體中文':'Traditional Chinese','语言信息':'Language details','全局快捷键':'Global shortcuts','启用全局快捷键':'Enable global shortcuts','唤出主窗口':'Show main window','暂停当前定时':'Pause current timer','继续当前定时':'Resume current timer',
+'支持 Ctrl、Alt、Shift + 字母／数字／F1～F12':'Use Ctrl, Alt, Shift + letters / digits / F1–F12','执行前提醒':'Before-action reminder','提前提醒不改变任务执行时刻。':'Reminders do not change the execution time.','提前提醒':'Remind in advance','10 秒':'10 seconds','30 秒':'30 seconds','60 秒':'60 seconds','可取消提醒':'Cancellable notice','提示音':'Warning sound','显示主窗口':'Show main window',
+'Windows 通知':'Windows notifications','按 Windows 通知设置显示。':'Follows Windows notification settings.','任务已设置':'Task scheduled','任务已完成':'Task completed','任务失败':'Task failed','消息与预览':'Message & preview','消息停留时长':'Message duration','预览提醒':'Preview reminder','测试通知':'Test notification','使用说明':'Instructions',
+'拖动滑块立即生效；放弃更改不会撤销硬件调整。':'Sliders apply immediately; discarding changes does not undo hardware adjustments.',
+'六个位置，可按习惯设置':'Six customizable slots','第{n}项':'Slot {n}','分钟':'minutes','请输入有效时长或 HH:MM 时间':'Enter a valid duration or HH:MM time','修改后只影响快捷入口；右键可排序或恢复默认。':'Only changes quick actions. Right-click to reorder or reset.','任务中心':'Task center','队列 {q} 项 · 模板 {t} 个 · 高级任务 {a} 项':'Queue {q} · Templates {t} · Advanced {a}','打开任务中心':'Open task center','未来7天预览 →':'Next 7 days →','时间方式说明':'Scheduling modes','前移':'Move earlier','后移':'Move later','恢复默认':'Reset defaults',
+'导入与导出':'Import & export','执行日志与诊断':'Logs & diagnostics','复制诊断概要':'Copy diagnostics','默认不包含消息内容和个人文件路径。':'Message text and personal file paths are excluded.','诊断概要已复制':'Diagnostics copied','提醒预览':'Reminder preview','这是预览，不会执行操作或改变当前计时。':'Preview only. No action is performed and your timer stays unchanged.',
+'保存更改？':'Save changes?','是：保存；否：放弃；取消：继续编辑。':'Save, discard or keep editing.','放弃':'Discard','继续编辑':'Keep editing','恢复上次定时？':'Restore the previous timer?','继续上次未完成的定时，或先暂停后再决定。':'Continue the unfinished timer, or restore it paused.','继续计时':'Continue timer',
+'上方修改的是下次设定，当前任务保持不变。':'The controls edit the next setup. The active task stays unchanged.','右键可延后任务或查看队列。':'Right-click to postpone or view the queue.','置顶主窗口':'Keep main window on top','最小化到任务栏':'Minimize to taskbar','关闭主窗口':'Close main window','停止当前任务':'Stop current task','暂停／继续当前任务':'Pause / resume current task','点击编辑：':'Click to edit: ',
+'恢复预览':'Restore preview','选择恢复范围；运行中计时、当前队列与自启动项保留。':'Choose what to restore. Active timer, queue and startup entry are preserved.','常用设置':'Settings','常用模板':'Templates','设置项':'Setting','当前':'Current','备份':'Backup','恢复的高级任务保持停用；仅恢复模板不会修改其他设置。':'Restored advanced tasks stay disabled. Templates-only restore preserves settings.','请选择恢复范围':'Choose what to restore','恢复前先保存或放弃当前设置草稿。':'Save or discard your settings draft before restoring.'
+})
+
+EN.update({'今天':'Today','明天':'Tomorrow','后天':'In 2 days','修改后只影响快捷入口；右键可更改方式、排序或恢复默认。':'Only changes quick actions. Right-click for type, ordering or reset.'})
+
+EN.update({'电脑快控':'PC controls','队列':'Queue','六格快捷预设':'Six quick presets','恢复未完成定时':'Restore unfinished timer','Esc 最小化':'Esc minimize','提醒提前量':'Reminder lead time','任务已设置通知':'Task scheduled notification','任务已完成通知':'Task completed notification','任务失败通知':'Task failed notification','开机启动设置失败，原设置已保留。':'Startup setting failed. Previous settings are preserved.','配置保存失败，原设置已保留。':'Saving failed. Previous settings are preserved.','保存失败，原设置已保留':'Saving failed. Previous settings are preserved','恢复范围无效':'Invalid restore selection','数值超出允许范围':'Value is out of range','提醒提前量无效':'Invalid reminder lead time','恢复方式无效':'Invalid recovery policy','恢复为暂停':'Restore paused'})
+
+EN.update({'不透明度可调范围：40%～100%。保存设置后生效。':'Opacity range: 40%–100%. Applies after saving settings.'})
+
+EN.update({'已修改':'Modified','未修改':'No changes','修改后需保存才会生效':'Save changes to apply them','亮度与音量调整立即生效':'Brightness & volume: live','其他设置已修改，需保存生效':'Save other settings to apply','开启／关闭悬浮倒计时':'Toggle floating countdown'})
+
+EN.update({'悬浮倒计时快捷键':'Floating countdown shortcut'})
+
+EN.update({'选择界面语言，保存后应用。': 'Choose a display language; save to apply.', '点击组合键框后，直接按下新的快捷键': 'Click a shortcut, then press the new key combination.', '恢复默认快捷键': 'Restore default shortcuts', '修改明细': 'Changes', '暂无快捷键修改': 'No shortcut changes', '已注册': 'Registered', '待保存': 'Unsaved', '被占用': 'In use', '格式无效': 'Invalid format', '重复快捷键': 'Duplicate', '未启用': 'Disabled', '当前任务': 'Current task', '当前没有正在运行的任务': 'No active task', '等待队列 · 前一项完成后自动开始下一项': 'Waiting queue · Starts after the previous task completes', '前一项完成后': 'After previous task:', '顺序': 'Order', '任务': 'Task', '执行条件': 'Trigger', '操作': 'Actions', '更多操作': 'More actions', '把当前设定加入队列': 'Add current setup to queue', '选中 {n} 项': '{n} selected', '复制任务': 'Copy task', '队列为空，将当前设定加入队列即可开始': 'Queue is empty. Add the current setup to begin.', '快捷键至少包含Ctrl或Alt': 'Include Ctrl or Alt in the shortcut.', '快捷键注册线程无响应': 'Shortcut service did not respond.'})
+
+EN.update({'自动保留最近10份正常配置':'Keeps the 10 most recent valid configurations','执行日志':'Execution log'})
+
+EN.update({'剩余 {t}':'Remaining {t}'})
+
+EN.update({'快捷键格式：Ctrl+Alt+H（字母、数字或F1～F12）':'Shortcut format: Ctrl+Alt+H (letters, digits or F1–F12)','快捷键修饰键有误或重复':'Invalid or repeated shortcut modifier','不同操作不能使用相同快捷键':'Each action needs a different shortcut'})
+
+EN.update({'删除选中':'Delete selected','清空队列':'Clear queue'})
+
+EN.update({'快捷预设':'Quick presets'})

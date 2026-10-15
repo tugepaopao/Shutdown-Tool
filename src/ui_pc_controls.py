@@ -3,19 +3,18 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk
 from theme import theme, flat_button
 from pc_controls import WindowsControls
-from ui_cozy import CozyFrame
 
 
 
 class PercentSlider(tk.Canvas):
     """Flat, keyboard-accessible slider with a clear thumb and 0..100 range."""
-    def __init__(self, parent, variable, command):
-        super().__init__(parent, height=26, width=100, bg=theme.c('bg'),
+    def __init__(self, parent, variable, command, minimum=0, maximum=100):
+        super().__init__(parent, height=26, width=100, bg=parent.cget('background'),
                          highlightthickness=0, takefocus=True, cursor='hand2')
         self.variable, self.command = variable, command
+        self.minimum, self.maximum = minimum, maximum
         self.disabled = False
         self.trace = variable.trace_add('write', self.redraw)
         self.bind('<Configure>', self.redraw)
@@ -25,8 +24,8 @@ class PercentSlider(tk.Canvas):
         self.bind('<Right>', lambda e: self._step(1))
         self.bind('<Prior>', lambda e: self._step(10))
         self.bind('<Next>', lambda e: self._step(-10))
-        self.bind('<Home>', lambda e: self._set(0))
-        self.bind('<End>', lambda e: self._set(100))
+        self.bind('<Home>', lambda e: self._set(self.minimum))
+        self.bind('<End>', lambda e: self._set(self.maximum))
         self.bind('<FocusIn>', self.redraw)
         self.bind('<FocusOut>', self.redraw)
         self.bind('<Destroy>', self._cleanup)
@@ -48,34 +47,35 @@ class PercentSlider(tk.Canvas):
         margin = 8
         center = height/2
         end = max(margin, width-margin)
-        x = margin+(end-margin)*max(0,min(100,self.variable.get()))/100
+        value = max(self.minimum,min(self.maximum,float(self.variable.get())))
+        x = margin+(end-margin)*(value-self.minimum)/(self.maximum-self.minimum)
         color = theme.c('disabled') if self.disabled else theme.accent
         self.delete('all')
         self.create_line(margin,center,end,center,fill=theme.c('card_border'),width=4,capstyle='round')
         if not self.disabled: self.create_line(margin,center,x,center,fill=color,width=4,capstyle='round')
         self.create_oval(x-6,center-6,x+6,center+6,fill=theme.c('input_bg'),outline=color,width=2)
-        if self.focus_get() is self and not self.disabled:
+        if self.focus_get() is self and getattr(self._root(),'_cozy_keyboard_navigation',False) and not self.disabled:
             self.create_rectangle(1,1,width-2,height-2,outline=theme.accent,dash=(2,2))
 
     def _set(self, value):
         if self.disabled: return 'break'
-        value = max(0,min(100,round(value)))
+        value = max(self.minimum,min(self.maximum,round(value)))
         self.variable.set(value)
         self.command(str(value))
         return 'break'
 
     def _step(self, amount):
-        return self._set(self.variable.get()+amount)
+        return self._set(float(self.variable.get())+amount)
 
     def _point(self, event):
         if self.disabled: return 'break'
-        self.focus_set()
-        return self._set((event.x-8)*100/max(1,self.winfo_width()-16))
+        self._root()._cozy_keyboard_navigation=False;self.focus_set()
+        return self._set(self.minimum+(event.x-8)*(self.maximum-self.minimum)/max(1,self.winfo_width()-16))
 
 
 class ControlPanel(tk.Frame):
     def __init__(self, parent, settings, backend=None):
-        super().__init__(parent, bg=theme.c('bg'))
+        super().__init__(parent, bg=parent.cget('bg'))
         self.settings = settings
         self.T = settings.T
         self.backend = backend or WindowsControls()
@@ -90,29 +90,30 @@ class ControlPanel(tk.Frame):
         self.link = tk.BooleanVar(self, False)
         self.muted = False
         self.labels = []
-        self._poll_id = self._periodic_id = None
+        self._poll_id = self._periodic_id = self._retry_id = None
         self.bind('<Destroy>', self._destroyed, add='+')
-        self.pack(fill='both', expand=True, padx=10, pady=8)
-        bar = tk.Frame(self, bg=theme.c('bg')); bar.pack(fill='x', pady=(0, 8))
+        self.pack(fill='both', expand=True, padx=0, pady=4)
+        bar = tk.Frame(self, bg=self.cget('bg')); bar.pack(fill='x', pady=(0, 8))
         self.count_label = self._label(bar, 'pc_detecting', anchor='w')
         self.count_label.pack(side='left', fill='x', expand=True)
         self.refresh_button = flat_button(bar, self.T('pc_refresh'), self.refresh, padx=10)
         self.refresh_button.pack(side='right')
         bright = self._group('pc_brightness')
-        self.monitors_frame = tk.Frame(bright, bg=theme.c('bg'))
+        self.monitors_frame = tk.Frame(bright, bg=bright.cget('bg'))
         self.monitors_frame.pack(fill='x', padx=10, pady=6)
         self.link_check = tk.Checkbutton(bright, text=self.T('pc_link'), variable=self.link,
-            bg=theme.c('bg'), fg=theme.c('fg'), selectcolor=theme.c('input_bg'),
-            activebackground=theme.c('bg'), font=theme.font(), anchor='w')
+            bg=bright.cget('bg'), fg=theme.c('fg'), selectcolor=theme.c('input_bg'),
+            activebackground=bright.cget('bg'), font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w')
         self.link_check.pack(fill='x', padx=6, pady=(0, 8))
+        self.link_check.bind('<Configure>',lambda e:self.link_check.configure(wraplength=max(50,e.width-24)))
         self.labels.append((self.link_check, 'pc_link'))
         sound = self._group('pc_volume')
-        sound_row = tk.Frame(sound, bg=theme.c('bg')); sound_row.pack(fill='x', padx=10, pady=(6, 0))
+        sound_row = tk.Frame(sound, bg=sound.cget('bg')); sound_row.pack(fill='x', padx=10, pady=(6, 0))
         self._label(sound_row, 'pc_volume', anchor='w').pack(side='left')
-        self.volume_value = tk.Label(sound_row, text='—', bg=theme.c('bg'), fg=theme.accent,
-                                     font=theme.font(bold=True), anchor='e')
+        self.volume_value = tk.Label(sound_row, text='—', bg=sound_row.cget('bg'), fg=theme.accent,
+                                     font=getattr(self.winfo_toplevel(),'font',theme.font)(bold=True), anchor='e')
         self.volume_value.pack(side='right')
-        controls = tk.Frame(sound, bg=theme.c('bg')); controls.pack(fill='x', padx=10, pady=(4, 6))
+        controls = tk.Frame(sound, bg=sound.cget('bg')); controls.pack(fill='x', padx=10, pady=(4, 6))
         controls.columnconfigure(0, weight=1)
         self.volume = tk.DoubleVar(self, 0)
         self.volume_scale = self._scale(controls, self.volume, self._volume_changed)
@@ -121,21 +122,18 @@ class ControlPanel(tk.Frame):
         self.mute_button = flat_button(controls, self.T('pc_mute'), self.toggle_mute, padx=10)
         self.mute_button.grid(row=0, column=1, sticky='ew')
         self.mute_button.configure(state='disabled')
-        self.audio_note = tk.Label(sound, text='', bg=theme.c('bg'), fg=theme.c('fg_muted'),
-                                   font=theme.font(), anchor='w', justify='left', wraplength=400)
+        self.audio_note = tk.Label(sound, text='', bg=sound.cget('bg'), fg=theme.c('fg_muted'),
+                                   font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w', justify='left', wraplength=400)
         self.audio_note.pack(fill='x', padx=10, pady=(0, 5))
         awake=self._group('pc_awake_title')
         self.awake_var=tk.BooleanVar(self, bool(settings.app.cfg.get('keep_display_on')))
-        self.awake_check=tk.Checkbutton(awake,text=self.T('pc_awake_toggle'),variable=self.awake_var,command=self._awake_changed,bg=theme.c('bg'),fg=theme.c('fg'),selectcolor=theme.c('input_bg'),activebackground=theme.c('bg'),font=theme.font(),anchor='w')
-        self.awake_check.pack(fill='x',padx=6,pady=(5,3));self.labels.append((self.awake_check,'pc_awake_toggle'))
-        self._label(awake,'pc_awake_hint',anchor='w',wraplength=400,justify='left').pack(fill='x',padx=10,pady=(0,8))
-        self._label(self, 'pc_live', anchor='w', wraplength=400, justify='left').pack(fill='x', pady=(0, 6))
+        from ui_settings_controls import Switch
+        row=tk.Frame(awake,bg=awake.cget('bg'));row.pack(fill='x',padx=12,pady=(8,12))
+        self.awake_check=Switch(row,self.awake_var,command=self._awake_changed);self.awake_check.pack(side='right')
+        self._label(row,'pc_awake_toggle',anchor='w',wraplength=240,justify='left').pack(side='left',fill='x',expand=True)
         self.status = tk.Label(self, text='', bg=theme.c('bg'), fg=theme.c('fg_muted'),
-                              font=theme.font(), anchor='w', justify='left', wraplength=400)
+                              font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w', justify='left', wraplength=400)
         self.status.pack(fill='x', pady=(0, 6))
-        guide = self._group('pc_guide')
-        for key in ('pc_guide_display', 'pc_guide_ddc', 'pc_guide_audio', 'pc_guide_cancel'):
-            self._label(guide, key, anchor='w', justify='left', wraplength=400).pack(fill='x', padx=10, pady=5)
         self.retheme()
         threading.Thread(target=self._worker, name='PC controls', daemon=True).start()
         self._poll_id = self.after(50, self._poll)
@@ -153,8 +151,10 @@ class ControlPanel(tk.Frame):
             messagebox.showerror(self.T("tip_title"),str(exc),parent=self.settings)
 
     def _label(self, parent, key, **kwargs):
-        label = tk.Label(parent, text=self.T(key), bg=theme.c('bg'), fg=theme.c('fg'), font=theme.font(), **kwargs)
+        label = tk.Label(parent, text=self.T(key), bg=parent.cget('bg'), fg=theme.c('fg'), font=getattr(self.winfo_toplevel(),'font',theme.font)(), **kwargs)
         self.labels.append((label, key))
+        if kwargs.get('wraplength'):
+            label.bind('<Configure>',lambda e:label.configure(wraplength=max(50,e.width-2)) if abs(int(label.cget('wraplength'))-e.width)>3 else None)
         return label
 
     def _group(self, key):
@@ -202,7 +202,7 @@ class ControlPanel(tk.Frame):
     def _destroyed(self, event):
         if event.widget is not self: return
         self.closed.set()
-        for task in [self._poll_id, self._periodic_id, *self.pending.values()]:
+        for task in [self._poll_id, self._periodic_id, self._retry_id, *self.pending.values()]:
             if task:
                 try: self.after_cancel(task)
                 except tk.TclError: pass
@@ -234,35 +234,40 @@ class ControlPanel(tk.Frame):
             for monitor in result:
                 row = self.rows[monitor.key]
                 row['monitor'] = monitor
-                row['variable'].set(monitor.value or 0)
-                row['value_label'].configure(text='—' if monitor.value is None else f'{monitor.value}%')
+                row['slider'].state(['disabled'] if monitor.value is None else ['!disabled'])
+                if not any(key.startswith('brightness:') for key in self.pending):
+                    row['variable'].set(monitor.value or 0)
+                    row['value_label'].configure(text='—' if monitor.value is None else f'{monitor.value}%')
+            self.link_check.configure(state='normal' if sum(m.value is not None for m in result) > 1 else 'disabled')
             self.status.configure(text=self.T('pc_ready'))
             return
         for widget in self.monitors_frame.winfo_children(): widget.destroy()
         self.rows = {}
         self.monitor_list = result
         self.count_label.configure(text=self.T('pc_count', n=len(result)))
+        surface = self.monitors_frame.cget("background")
         secondary = 0
         for monitor in result:
             if not monitor.primary: secondary += 1
             name = self.T('pc_primary') if monitor.primary else self.T('pc_secondary', n=secondary)
-            frame = tk.Frame(self.monitors_frame, bg=theme.c('bg')); frame.pack(fill='x', pady=(0, 8))
-            head = tk.Frame(frame, bg=theme.c('bg')); head.pack(fill='x')
-            title = tk.Label(head, text=name, bg=theme.c('bg'), fg=theme.c('fg'), font=theme.font(), anchor='w')
+            frame = tk.Frame(self.monitors_frame, bg=surface); frame.pack(fill='x', pady=(0, 8))
+            head = tk.Frame(frame, bg=surface); head.pack(fill='x')
+            title = tk.Label(head, text=name, bg=surface, fg=theme.c('fg'), font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w')
             title.pack(side='left', fill='x', expand=True)
             value = tk.Label(head, text='—' if monitor.value is None else f'{monitor.value}%',
-                             bg=theme.c('bg'), fg=theme.accent, font=theme.font(bold=True))
+                             bg=surface, fg=theme.accent, font=getattr(self.winfo_toplevel(),'font',theme.font)(bold=True))
             value.pack(side='right')
             var = tk.DoubleVar(self, monitor.value or 0)
             slider = self._scale(frame, var, lambda number, key=monitor.key: self._brightness_changed(key, number))
             slider.pack(fill='x', pady=(4, 0))
             if monitor.value is None:
                 slider.state(['disabled'])
-                tk.Label(frame, text=self.T('pc_unavailable'), bg=theme.c('bg'), fg=theme.c('fg_muted'),
-                         font=theme.font(), anchor='w', justify='left', wraplength=400).pack(fill='x', pady=(3, 0))
+                tk.Label(frame, text=self.T('pc_unavailable'), bg=surface, fg=theme.c('fg_muted'),
+                         font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w', justify='left', wraplength=400).pack(fill='x', pady=(3, 0))
             self.rows[monitor.key] = dict(monitor=monitor, variable=var, slider=slider, value_label=value)
         if not result:
-            self._label(self.monitors_frame, 'pc_missing', anchor='w', wraplength=400).pack(fill='x', pady=4)
+            missing=self._label(self.monitors_frame, 'pc_missing', anchor='w', wraplength=400)
+            missing.configure(bg=surface);missing.pack(fill='x', pady=4)
         self.link_check.configure(state='normal' if sum(m.value is not None for m in result) > 1 else 'disabled')
         self.status.configure(text=self.T('pc_ready'))
 
@@ -318,7 +323,12 @@ class ControlPanel(tk.Frame):
     def _brightness_done(self, result, error):
         self.status.configure(text=self.T('pc_partial' if error and self.link.get() else 'pc_failed' if error else 'pc_applied'))
         if error:
-            self.after(350, self.refresh)
+            if self._retry_id:self.after_cancel(self._retry_id)
+            self._retry_id=self.after(350,self._retry_refresh)
+
+    def _retry_refresh(self):
+        self._retry_id=None
+        self.refresh()
 
     def _volume_changed(self, number):
         if 'disabled' in self.volume_scale.state(): return

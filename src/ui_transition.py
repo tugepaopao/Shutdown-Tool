@@ -1,7 +1,7 @@
 """非阻塞颜色过渡：保留控件、输入、焦点和运行中计时。"""
 import tkinter as tk
 import time
-from theme import theme, blend, shade, PALETTES, ACCENTS
+from theme import theme, blend, shade
 
 OPTIONS=('background','foreground','activebackground','activeforeground',
          'disabledforeground','highlightbackground','highlightcolor','selectcolor',
@@ -70,7 +70,7 @@ def animate(app,old_palette,old_accent,old_dark,duration=360):
             theme.apply_ttk(app.root)
             app._refresh_action_styles();app._refresh_mode_btns();app._set_running_ui(app.engine.is_running())
             settings=getattr(app,'_settings_win',None)
-            if settings and settings.winfo_exists():settings._refresh_accent_rings();settings._set_apply_enabled(settings.dirty)
+            if settings and settings.winfo_exists():settings._set_apply_enabled(settings.dirty)
             from ui_dialog_chrome import update
             for widget in walk(app.root):
                 if isinstance(widget,tk.Toplevel):update(widget)

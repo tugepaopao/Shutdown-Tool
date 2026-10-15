@@ -58,31 +58,38 @@ def build_actions(app, parent):
     heading(app, parent, 1, app.T('nav_actions'), True)
     body = tk.Frame(parent, bg=theme.c('card'))
     from ui_cozy import scale
-    body.pack(fill='x',padx=(8,round(28*scale(body))),pady=(0,9))
+    body.configure(width=max(360,round(344*scale(body))))
+    body.pack(anchor='w',padx=8,pady=(0,9))
+    body.pack_propagate(False)
+    body.grid_propagate(False)
+    body.configure(height=round(180*scale(body)))
     app.actions_box = app.actions_body = body
     app.hint_label = tk.Label(body)
     app.action_var = tk.StringVar(value=app.cfg.get('action'))
-    app.action_widgets = {}; app.action_row_frames = {}; app.detail_rows = {}; app.detail_labels = {}
+    app.action_widgets = {}; app.action_row_frames = {}; app.detail_rows = {}; app.detail_labels = {}; app.action_more = {}
     app.action_checks = {}
     for i, (action, key, more) in enumerate(ACTION_ROWS):
         grp = CozyFrame(body, bg=theme.c('card'), highlightthickness=0,
                        highlightbackground=theme.c('card_border'))
         grp.grid(row=i//2, column=i%2, sticky='ew', padx=(0, 4) if i%2==0 else (4, 0), pady=1)
-        row = tk.Frame(grp, bg=theme.c('card')); row.pack(fill='x',padx=6,pady=3)
+        row = tk.Frame(grp, bg=theme.c('card')); row.pack(fill='x',padx=2,pady=3)
         ind = tk.Frame(row, width=0, bg=theme.c('card'))
-        rb = flat_button(row, '  '+app.T(key),
+        rb = flat_button(row, app.T(key),
             lambda a=action:(app.action_var.set(a),app._on_action_pick()),kind='plain',
-            font=theme.font(),padx=2,pady=1)
-        rb.config(image=icon(app,action,23),compound='left',anchor='w',cursor='hand2')
-        set_icon(app,rb,action,23)
+            font=theme.font(delta=-2),padx=1,pady=1)
+        rb.config(image=icon(app,action,19),compound='left',anchor='w',cursor='hand2')
+        set_icon(app,rb,action,19)
+        rb._row_action=True;rb._fit_text=True
         rb.pack(side='left', fill='x', expand=True)
         check = tk.Label(row, bg=theme.c('card'), width=20, image=icon(app, 'check', 17))
-        check.pack(side='right', padx=(0, 5)); app.action_checks[action] = check
+        check.pack(side='right', padx=(0, 1)); app.action_checks[action] = check
         check.bind('<Button-1>', lambda e,a=action: (app.action_var.set(a), app._on_action_pick()))
         if more:
-            b=flat_button(row, '…', lambda a=action:app.pick_for(a), kind='ghost', padx=2,pady=2)
-            b.pack(side='right')
+            b=flat_button(row, '…', lambda a=action:app.pick_for(a), kind='ghost', padx=round(7*scale(row)),pady=2)
+            b.pack(side='right');app.action_more[action]=b
             app.detail_labels[action]=tk.Label(grp)
+        # Reserve check and edit controls before allocating flexible text.
+        rb.pack_forget();rb.pack(side='left',fill='x',expand=True)
         app.action_widgets[action]=rb; app.detail_rows[action]=row
         app.action_row_frames[action]=(grp,row,ind)
     for col in (0,1):body.columnconfigure(col, weight=1, uniform='action')
@@ -135,7 +142,7 @@ def build_timer(app, parent):
         tile=tk.Frame(app.preset_row,bg=theme.c('card'),highlightthickness=0,
                       highlightbackground=theme.c('card_border'))
         tile.grid(row=i//3,column=i%3,sticky='ew',padx=(0 if i%3==0 else 6,0),pady=(0 if i<3 else 5,0))
-        b=flat_button(tile,app.T(key),lambda s=spec:app.apply_preset(s),kind='normal',font=theme.font(),padx=2,pady=3)
+        b=flat_button(tile,app.T(key),lambda index=i:app.apply_preset(__import__('quick_presets').spec(__import__('quick_presets').get(app.cfg)[index])),kind='normal',font=theme.font(),padx=2,pady=3)
         b.config(image=icon(app,names[i],20),compound='top',pady=3,
                  highlightthickness=0,highlightbackground=theme.c('card_border'))
         set_icon(app,b,names[i],20)
@@ -194,6 +201,10 @@ def build_footer(app,parent):
         b.config(image=icon(app,name,17),compound='left',highlightthickness=0,
                  highlightbackground=theme.c('card_border'))
         set_icon(app,b,name,17)
+        if attr=='btn_enqueue':
+            app.queue_badge=flat_button(tile,'0',app.open_queue,kind='ghost',font=theme.font(delta=-2),padx=3,pady=5)
+            app.queue_badge.pack(side='right')
+            b.config(text=__import__('i18n').feature_text(app.T,'加入队列'))
         b.pack(fill='both',expand=True);setattr(app,attr,b)
     from ui_summary import build
     build(app,parent)
@@ -215,7 +226,7 @@ def measure(app):
         height=max(height,app.content_area.winfo_reqheight())
     app.mode_var.set(original);app._refresh_time_groups();app._refresh_mode_btns()
     app.root.update_idletasks()
-    return max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root)),app.root.winfo_reqheight()
+    return max(round(472*scale(app.root)),max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root))),app.root.winfo_reqheight()
 
 
 def build_ui(app):

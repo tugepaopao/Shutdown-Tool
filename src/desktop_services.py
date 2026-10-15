@@ -66,13 +66,15 @@ class DesktopServices:
         except Exception:self.close();raise
         app.root.bind('<Destroy>',self._destroy,add='+')
     def apply(self):
+        if getattr(self,"capturing",False):return
         cfg=self.app.cfg
         if cfg.get('hotkeys_enabled'):
             if self.hotkeys is None:self.hotkeys=HotkeyManager(lambda kind:self.app.post(self.handle,kind))
-            self.hotkeys.configure({kind:cfg.get('hotkey_'+kind) for kind in ('show','pause','resume')})
+            self.hotkeys.configure({kind:cfg.get('hotkey_'+kind) for kind in ('show','pause','resume','floating')})
         elif self.hotkeys:self.hotkeys.configure({})
     def handle(self,kind):
         if kind=='show':self.app.show_window()
+        elif kind=='floating':self.app.toggle_floating()
         elif self.app.engine.is_running():
             if kind=='pause' and not self.app.engine.paused:self.app.toggle_pause()
             if kind=='resume' and self.app.engine.paused:self.app.toggle_pause()

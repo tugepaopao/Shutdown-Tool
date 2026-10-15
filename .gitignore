@@ -5,6 +5,7 @@ build*/
 dist*/
 output/
 release/
+核验/
 *.exe
 *.zip
 *.log

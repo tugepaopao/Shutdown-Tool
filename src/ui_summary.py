@@ -72,7 +72,7 @@ def build(app,parent):
     for index,(attr,text,command) in enumerate((('summary_pause','Ⅱ',app.toggle_pause),('summary_stop','×',app.stop_timer))):
         from ui_cozy import scale
         slot=tk.Frame(controls,width=round(32*scale(controls)),height=round(30*scale(controls)),bg=theme.c('card'),highlightthickness=0,highlightbackground=theme.c('card_border'));slot.pack(side='left',padx=(0,7) if index==0 else 0);slot.pack_propagate(False)
-        b=flat_button(slot,text,command,padx=0,pady=0,font=theme.font(bold=True));b.configure(highlightthickness=0);b.pack(fill='both',expand=True);setattr(app,attr,b)
+        b=flat_button(slot,text,command,padx=0,pady=0,font=theme.font(bold=True));b._bare_glyph=True;b.configure(highlightthickness=0);b.pack(fill='both',expand=True);setattr(app,attr,b)
     text=tk.Frame(line,bg=theme.c('card'));text.pack(side='left',fill='x',expand=True)
     headline=tk.Frame(text,bg=theme.c('card'));headline.pack(fill='x')
     app.summary_dot=tk.Canvas(headline,width=10,height=12,bg=theme.c('card'),highlightthickness=0);app.summary_dot.pack(side='left',padx=(0,6))
@@ -93,26 +93,30 @@ def refresh(app):
         if task.get('action')=='message':action={'EN':'Message box','CHT':'提示框','CHS':'提示框'}[lang]
         remaining=max(0,int(app.engine.remaining()));minutes=math.ceil(remaining/60)
         delay=(f'in {minutes} min' if remaining>=60 else f'in {remaining} sec') if lang=='EN' else (f'{minutes}分鐘後執行' if remaining>=60 else f'{remaining}秒後執行') if lang=='CHT' else (f'{minutes}分钟后执行' if remaining>=60 else f'{remaining}秒后执行')
-        title=action+' · '+delay
+        single=('Repeat' if app.engine.mode=='interval' else 'Once') if lang=='EN' else ('循環' if lang=='CHT' else '循环') if app.engine.mode=='interval' else ('單次' if lang=='CHT' else '单次')
+        title=action+' · '+single+' · '+(('Paused' if lang=='EN' else '已暫停' if lang=='CHT' else '已暂停') if paused else delay)
         due=app.engine.due_at()
         if due:
             import datetime as dt
-            when=due.strftime('%H:%M' if due.date()==dt.datetime.now().date() else '%m-%d %H:%M')
+            weekdays=('Mon','Tue','Wed','Thu','Fri','Sat','Sun') if lang=='EN' else ('週一','週二','週三','週四','週五','週六','週日') if lang=='CHT' else ('周一','周二','周三','周四','周五','周六','周日')
+            when=due.strftime('%H:%M') if due.date()==dt.datetime.now().date() else due.strftime('%m-%d ')+weekdays[due.weekday()]+due.strftime(' %H:%M')
             state=('Paused' if paused else 'Counting down') if lang=='EN' else ('已暫停' if paused else '正在計時') if lang=='CHT' else ('已暂停' if paused else '正在计时')
+            from ui_runtime_context import edited
+            if edited(app):state+=' · '+('Editing next' if lang=='EN' else '編輯下次設定' if lang=='CHT' else '编辑下次设定')
             app.status.config(text=('Due ' if lang=='EN' else '預計 ' if lang=='CHT' else '预计 ')+when+' · '+state)
     app.summary_title.config(text=title)
+    import tkinter.font as font
+    for w,bold in ((app.summary_title,True),(app.status,False)):
+        if w.winfo_width()<=1:continue
+        for delta in (0,-1,-2,-3):
+            selected=theme.font(delta=delta,bold=bold)
+            if font.Font(root=w,font=selected).measure(w.cget('text'))<=max(1,w.winfo_width()-4):break
+        w.config(font=selected)
     enable_button(app.summary_pause,running);enable_button(app.summary_stop,running)
     app.summary_pause._theme_photo=control_icon(app,paused)
     app.summary_pause.config(text='',image=app.summary_pause._theme_photo)
-    ring=app.summary_ring;ring.delete('all');ring.create_oval(3,3,29,29,outline=theme.c('divider'),width=4)
-    percent=float(app.progress['value']) if running else 0
-    if running:
-        # Windows GDI can turn tiny native arcs into complete circles when
-        # their integer endpoints coincide. A rounded polyline stays exact.
-        extent=max(2,min(359.9,percent*3.6));points=[];steps=max(2,math.ceil(extent/5))
-        for index in range(steps+1):
-            angle=math.radians(90-extent*index/steps);points.extend((16+13*math.cos(angle),16-13*math.sin(angle)))
-        ring.create_line(*points,fill=theme.accent,width=4,capstyle='round',joinstyle='round',smooth=True)
+    from ui_runtime_context import paint
+    paint(app)
     dot=app.summary_dot;dot.delete('all');dot.create_oval(1,2,9,10,outline='',fill=theme.c('fg_muted') if not running else ('#e3a533' if paused else '#26b850'))
     renderer=getattr(app,'skin_renderer',None)
     if renderer:renderer.canvas_backgrounds()

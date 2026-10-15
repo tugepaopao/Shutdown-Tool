@@ -35,15 +35,19 @@ M_DATETIME = "datetime"
 M_INTERVAL = "interval"
 
 DEFAULT_SETTINGS = {
-    "skin": "solid",
+    "skin": "violet",
     "main_topmost": False,
-    "float_enabled": False, "float_topmost": True, "float_opacity": 100,
+    "float_enabled": False, "float_topmost": False, "float_opacity": 100, "float_zorder_revision": 0,
     "float_x": 0, "float_y": 0, "float_positioned": False, "float_docked": False,
     'quick_day_offset': 1,
+    'quick_presets': [],
+    'warning_seconds': 10,
+    'resume_strategy': 'ask',
     'hotkeys_enabled': False,
     'hotkey_show': 'Ctrl+Alt+H',
     'hotkey_pause': 'Ctrl+Alt+P',
     'hotkey_resume': 'Ctrl+Alt+R',
+    'hotkey_floating': 'Ctrl+Alt+F',
     'notifications_enabled': False,
     'notify_setup': True,
     'notify_done': True,
@@ -66,7 +70,7 @@ DEFAULT_SETTINGS = {
     "language": "CHS",
     # 外观（主题色 / 字号 / 深浅色）
     "theme_mode": "light",          # light | dark | system
-    "accent": "orange",               # blue|teal|green|orange|red|pink|purple|indigo
+    "accent": "purple",               # blue|teal|green|orange|red|pink|purple|indigo
     "font_size": "normal",          # small | normal | large | huge
     # 其他设置
     "popup_at_10s": False,
@@ -151,25 +155,42 @@ class Config(object):
 
     def load(self):
         path = config_file()
+        source=None
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
                 from config_backups import validate_settings
                 validate_settings(loaded)
-                self.data.update(loaded)
+                self.data.update(loaded);source=loaded
             except Exception:
                 from config_backups import recover_corrupt
                 recovered, notice = recover_corrupt(path)
-                if recovered is not None:self.data.update(recovered)
+                if recovered is not None:self.data.update(recovered);source=recovered
                 self.recovery_notice = notice
         if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data['skin']='violet'
+        self.data['accent']='purple'
         self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
+        self._upgrade_float_layer()
+        if source is not None and "resume_strategy" not in source:
+            self.data["resume_strategy"]="continue" if self.data.get("resume_timer",True) else "off"
+        if not self.data.get("quick_presets"):
+            from quick_presets import defaults
+            self.data["quick_presets"]=defaults(self.data)
+
+    def _upgrade_float_layer(self):
+        # Reset the legacy always-on-top default once; later opt-ins persist.
+        if self.data.get('float_zorder_revision')!=1:
+            self.data['float_topmost']=False
+            self.data['float_zorder_revision']=1
 
     def save(self):
         if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data['skin']='violet'
+        self.data['accent']='purple'
         self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
@@ -201,9 +222,12 @@ class Config(object):
     def update(self, mapping):
         self.data.update(mapping)
         if self.data.get('skin')=='custom':self.data['skin']='solid'
+        self.data['skin']='violet'
+        self.data['accent']='purple'
         self.data.pop('background_image',None)
         self.data['theme_mode']='light'
         self.data['font_size']='normal'
+        self._upgrade_float_layer()
 
 
 def app_dir():

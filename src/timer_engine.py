@@ -20,12 +20,14 @@ class TimerEngine(object):
         self._emit = emit
         self._stop_evt = threading.Event()
         self._lock = threading.Lock()
+        self._due_wall = None
         self._deadline = 0.0
         self._total = 0.0
         self._mode = M_COUNTDOWN
         self._interval = 0.0
         self._paused = False
         self._pause_at = 0.0
+        self.warning_seconds = WARN_SECONDS
         self._warned = False
         self._alive = False
         self._thread = None
@@ -78,10 +80,10 @@ class TimerEngine(object):
         （用户想知道的是「几点动手」，而不是「还有多少秒」）。
         暂停状态下按「现在 + 剩余」推算，这样恢复后数字仍然对得上。
         """
-        if not self._alive:
-            return None
-        rem = self.remaining()
-        return datetime.datetime.now() + datetime.timedelta(seconds=rem)
+        with self._lock:
+            if not self._alive:return None
+            if self._paused:return datetime.datetime.now()+datetime.timedelta(seconds=max(0,self._deadline-self._pause_at))
+            return self._due_wall
 
     # ------------------------------------------------------------ 启动 / 停止
     def start_countdown(self, seconds):
@@ -96,15 +98,16 @@ class TimerEngine(object):
         delta = (target - now).total_seconds()
         if delta < 0:
             delta = 0.0
-        self._start(delta, M_DATETIME)
+        self._start(delta, M_DATETIME, target)
 
-    def _start(self, seconds, mode):
+    def _start(self, seconds, mode, wall_target=None):
         self.stop()                     # 先作废可能在跑的旧线程（gen 会 +1）
         with self._lock:
             self._gen += 1
             gen = self._gen
             self._mode = mode
-            self._total = max(0.0, seconds)
+            self._total = max(0.0, (wall_target-datetime.datetime.now()).total_seconds() if wall_target is not None else seconds)
+            self._due_wall = wall_target if wall_target is not None else datetime.datetime.now()+datetime.timedelta(seconds=self._total)
             self._deadline = time.monotonic() + self._total
             self._paused = False
             self._warned = False
@@ -129,8 +132,11 @@ class TimerEngine(object):
         with self._lock:
             if not self.is_running() or not self._paused:
                 return False
-            self._deadline += time.monotonic() - self._pause_at
+            elapsed=time.monotonic()-self._pause_at
+            self._deadline += elapsed
+            if self._due_wall is not None:self._due_wall += datetime.timedelta(seconds=elapsed)
             self._paused = False
+            self._warned = False
         self._emit("resumed", {})
         return True
 
@@ -186,13 +192,16 @@ class TimerEngine(object):
                             return
                         self._total = interval
                         self._deadline = time.monotonic() + interval
+                        self._due_wall = datetime.datetime.now()+datetime.timedelta(seconds=interval)
                         self._warned = False
                     continue
+                with self._lock:
+                    if gen != self._gen or self._stop_evt.is_set():return
+                    self._alive = False
                 self._emit("finished", {"mode": mode, "repeat": False, "gen": gen})
-                self._alive = False
                 return
 
-            if not self._warned and remain <= WARN_SECONDS:
+            if not self._paused and not self._warned and remain <= self.warning_seconds:
                 self._warned = True
                 self._emit("warn", {"remain": remain, "gen": gen})
 

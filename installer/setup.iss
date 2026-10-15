@@ -6,7 +6,7 @@
 ; ============================================================
 
 #define MyAppName "定时关机工具"
-#define MyAppVersion "1.7.11"
+#define MyAppVersion "2.0"
 #define MyAppPublisher "@wenhao"
 #define MyAppExeName "定时关机工具.exe"
 #define MyAppId "{{8F3C1A72-5B4E-4C9D-9E21-7A6B0C5D3F10}"
@@ -33,7 +33,7 @@ AllowNoIcons=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\output
-OutputBaseFilename=定时关机工具_v1.7.11_安装包
+OutputBaseFilename=Shutdown-Tool-v2.0-Setup
 SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} v{#MyAppVersion}
@@ -45,11 +45,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 MinVersion=10.0
-VersionInfoVersion=1.7.11.0
+VersionInfoVersion=2.0.0.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} 安装程序
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion=1.7.11.0
+VersionInfoProductVersion=2.0.0.0
 
 [Languages]
 Name: "chinese"; MessagesFile: "ChineseSimplified.isl"
@@ -75,11 +75,6 @@ Name: "startupicon"; Description: "{cm:startup_task}"; GroupDescription: "{cm:gr
 Source: "{#SrcExeDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\使用说明.md"; DestDir: "{app}"; Flags: ignoreversion
 
-[InstallDelete]
-Type: files; Name: "{app}\豪崽子の自动关机工具.exe"
-Type: files; Name: "{autodesktop}\豪崽子の自动关机工具.lnk"
-Type: files; Name: "{autoprograms}\豪崽子の自动关机工具\豪崽子の自动关机工具.lnk"
-
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Comment: "{#MyAppName}"
 Name: "{autoprograms}\{#MyAppName} 使用说明"; Filename: "{sys}\notepad.exe"; Parameters: """{app}\使用说明.md"""
@@ -100,5 +95,3 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:launch_now}"; \
 Filename: "{sys}\taskkill.exe"; Parameters: "/f /im ""{#MyAppExeName}"""; \
     Flags: runhidden; RunOnceId: "KillRunningApp"
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}"

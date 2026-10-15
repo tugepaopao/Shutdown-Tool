@@ -44,6 +44,8 @@ def update(window):
         button._theme_photo = cozy_icon(window, 'close', round(16 * scale(window)))
         button.configure(image=button._theme_photo, bg=theme.c('bg'), activebackground=theme.c('hover'), fg=theme.c('fg_dim'))
     _strip_caption(window)
+    from ui_dialog_palette import apply
+    apply(window)
     return True
 
 
@@ -60,9 +62,10 @@ def _strip_caption(window):
         # Preserve native ownership, keyboard close and taskbar rules.
         # Client resize edges match the existing main window's implementation.
         wanted = (style & ~0xC00000 & ~0x40000) | 0x80000
-        if wanted != style:
-            u.SetWindowLongW(hwnd, -16, wanted)
-            u.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x37)
+        ex=u.GetWindowLongW(hwnd,-20);plain_ex=ex & ~0x20301
+        if wanted != style or plain_ex != ex:
+            u.SetWindowLongW(hwnd,-16,wanted);u.SetWindowLongW(hwnd,-20,plain_ex)
+            u.SetWindowPos(hwnd,None,0,0,0,0,0x37)
         window._dialog_chrome_hwnd = hwnd
     except (AttributeError, OSError, tk.TclError): pass
 

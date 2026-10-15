@@ -43,15 +43,44 @@ class CozyButton(tk.Button):
         self._v={'text':'','image':'','compound':'none','anchor':'center','padx':12,'pady':6,'width':0,'height':0}
         self._v.update({k:kw.pop(k) for k in list(kw) if k in self.virtual})
         self._state=kw.pop('state','normal');self._command=kw.pop('command',None)
-        self._ready=False;self._hovering=False;self._pressed=False;self._draw_job=None
+        self._keyboard_focus=False;self._ready=False;self._hovering=False;self._pressed=False;self._draw_job=None
         for key in ('bd','borderwidth','relief','highlightthickness'):kw.pop(key,None)
-        super().__init__(parent,**kw,command=self._call,bd=0,relief='flat',text='',padx=0,pady=0,highlightthickness=0)
+        super().__init__(parent,**kw,command=self._call,bd=0,relief='flat',text='',padx=0,pady=0,highlightthickness=0,default='disabled',overrelief='flat')
+        # Native Button mouse bindings shift the image and expose square corners.
+        # Keep the real Button API, but own pointer/key feedback and its rounded paint.
+        self.bindtags(tuple(tag for tag in self.bindtags() if tag!='Button'))
+        top=self.winfo_toplevel();root=self._root()
+        if not getattr(top,'_cozy_focus_tracking',False):
+            top._cozy_focus_tracking=True
+            def keyboard(event):root._cozy_keyboard_navigation=True
+            def pointer(event):root._cozy_keyboard_navigation=False
+            top.bind('<KeyPress-Tab>',keyboard,add='+');top.bind('<Shift-KeyPress-Tab>',keyboard,add='+');top.bind('<ButtonPress-1>',pointer,add='+')
         self._ready=True;self.bind('<Configure>',self._schedule,add='+')
         self.bind('<Enter>',lambda e:self._interaction(hover=True),add='+');self.bind('<Leave>',lambda e:self._interaction(hover=False,pressed=False),add='+')
-        self.bind('<ButtonPress-1>',lambda e:self._interaction(pressed=True),add='+');self.bind('<ButtonRelease-1>',lambda e:self._interaction(pressed=False),add='+')
-        self.bind('<FocusIn>',self._schedule,add='+');self.bind('<FocusOut>',self._schedule,add='+')
-        self.bind('<Return>',lambda e:self.invoke())
+        self.bind('<ButtonPress-1>',self._pointer_press);self.bind('<ButtonRelease-1>',self._pointer_release)
+        self.bind('<KeyPress-space>',self._space_press);self.bind('<KeyRelease-space>',self._space_release)
+        self.bind('<FocusIn>',self._focus_event,add='+');self.bind('<FocusOut>',self._focus_event,add='+')
+        self.bind('<Return>',self._enter_key)
         self.bind('<Destroy>',self._dispose,add='+');self._measure();self._paint()
+    def _focus_event(self,event):
+        self._keyboard_focus=event.type==tk.EventType.FocusIn and bool(getattr(self._root(),'_cozy_keyboard_navigation',False))
+        self._schedule()
+    def _pointer_press(self,event):
+        if self._state!='disabled':self._root()._cozy_keyboard_navigation=False;self._keyboard_focus=False;self.focus_set();self._interaction(pressed=True)
+        return 'break'
+    def _pointer_release(self,event):
+        pressed=self._pressed;self._interaction(pressed=False)
+        if pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height():self.invoke()
+        return 'break'
+    def _space_press(self,event):
+        if self._state!='disabled':self._interaction(pressed=True)
+        return 'break'
+    def _space_release(self,event):
+        pressed=self._pressed;self._interaction(pressed=False)
+        if pressed:self.invoke()
+        return 'break'
+    def _enter_key(self,event):
+        self.invoke();return 'break'
     def _call(self):
         if self._state!='disabled' and self._command:return self._command()
     def invoke(self):
@@ -84,7 +113,7 @@ class CozyButton(tk.Button):
         for k in list(kw):
             if k in self.virtual:self._v[k]=kw.pop(k)
         # The image plate owns its border; keep native border at zero.
-        kw.pop('highlightthickness',None)
+        for key in ('highlightthickness','bd','borderwidth','relief','overrelief','default'):kw.pop(key,None)
         result=super().configure(**kw) if kw else None
         if self._ready:
             if measure:self._measure()
@@ -121,8 +150,9 @@ class CozyButton(tk.Button):
     def _paint(self):
         self._draw_job=None
         if not self.winfo_exists():return
+        focused=self.focus_get() is self and self._keyboard_focus
         from theme import theme,blend
-        stamp=(self.winfo_width(),self.winfo_height(),tuple((k,str(v)) for k,v in self._v.items()),self._state,self._hovering,self._pressed,self.focus_get() is self,str(super().cget('font')),str(super().cget('background')),str(super().cget('foreground')),str(super().cget('activebackground')),str(super().cget('disabledforeground')),theme.accent,theme.c('shadow'))
+        stamp=(self.winfo_width(),self.winfo_height(),tuple((k,str(v)) for k,v in self._v.items()),self._state,self._hovering,self._pressed,focused,str(super().cget('font')),str(super().cget('background')),str(super().cget('foreground')),str(super().cget('activebackground')),str(super().cget('disabledforeground')),theme.accent,theme.c('shadow'))
         from ui_skin import renderer_for
         renderer=renderer_for(self)
         if renderer:stamp+=(renderer.generation,renderer.box(self))
@@ -136,19 +166,20 @@ class CozyButton(tk.Button):
         active=self._hovering and not disabled
         if active:bg=rgb(str(super().cget('activebackground')))
         if self._pressed and not disabled:bg=blend(bg,getattr(self,'_fixed_ink',theme.c('fg')),.08)
-        border=theme.accent if self.focus_get() is self else (theme.c('card_border') if not active else blend(theme.c('card_border'),theme.accent,.4))
+        border=theme.accent if focused else (theme.c('card_border') if not active else blend(theme.c('card_border'),theme.accent,.4))
         parent_bg=self.master.cget('background') if 'background' in self.master.keys() else theme.c('bg')
         kind=getattr(self,'_kind','normal')
-        border=getattr(self,'_fixed_accent',theme.accent) if self.focus_get() is self else bg
-        if kind in ('ghost','nav','plain') and not active and not self._pressed and self.focus_get() is not self:bg=parent_bg;border=bg
+        border=getattr(self,'_fixed_accent',theme.accent) if focused else getattr(self,'_selection_outline',bg)
+        if kind in ('ghost','nav','plain') and not getattr(self,'_nav_active',False) and not active and not self._pressed and not focused:bg=parent_bg;border=bg
         from ui_skin import background,tint
         skin=background(self)
         im=skin if skin is not None else plate(w,h,bg,border,theme.c('shadow'),max(9,int(12*scale(self))),raised=False,base=parent_bg)
-        if skin is not None:
+        if getattr(self,'_bare_glyph',False):im=skin if skin is not None else Image.new('RGB',(w,h),parent_bg)
+        if skin is not None and not getattr(self,'_row_action',False) and not getattr(self,'_bare_glyph',False):
             im=skin
             radius=max(9,int(12*scale(self)))
-            if getattr(self,'_kind','normal')=='accent':im=tint(im,bg,1,radius)
-            elif self._hovering or self._pressed or self.focus_get() is self:im=tint(im,bg,.24,radius,theme.accent if self.focus_get() is self else None)
+            if getattr(self,'_kind','normal')=='accent':im=tint(im,bg,1,radius,theme.accent if focused else None)
+            elif self._hovering or self._pressed or focused:im=tint(im,bg,.24,radius,theme.accent if focused else None)
             elif bg not in (theme.c('bg'),theme.c('card')):im=tint(im,bg,.20,radius)
         # A restrained vertical highlight, clipped inside the rounded fill.
         base=im
@@ -172,7 +203,12 @@ class CozyButton(tk.Button):
                 except (ValueError,tk.TclError,AttributeError):pass
             if text:
                 pixels=abs(font.actual('size')) if font.actual('size')<0 else font.actual('size')*float(self.tk.call('tk','scaling'))
-                pf=pil_font(round(pixels),font.actual('weight')=='bold');lineheight=font.metrics('linespace')
+                pf=pil_font(round(pixels),font.actual('weight')=='bold')
+                if getattr(self,'_fit_text',False):
+                    available=max(1,w-iw-gap-2*int(float(self._v['padx']))-12)
+                    while max((d.textlength(line,font=pf) for line in text.split('\n')),default=0)>available and pf.size>round(9*scale(self)):pf=pil_font(pf.size-1,font.actual('weight')=='bold')
+                    tw=max((d.textlength(line,font=pf) for line in text.split('\n')),default=0)
+                lineheight=font.metrics('linespace')
                 for index,line in enumerate(text.split('\n')):
                     # Center the visible ink within its line box, including punctuation.
                     box=d.textbbox((0,0),line,font=pf)
@@ -259,7 +295,7 @@ def cozy_icon(widget,name,size,ink=None):
         d.ellipse((2,2,94,94),fill=theme.accent);d.text((48,48),name[-1],font=pil_font(58,True),fill=theme.c('accent_fg'),anchor='mm')
     elif name=='blank':pass
     elif name=='check':
-        d.ellipse((4,4,92,92),fill=theme.accent);line([(6,12),(10,16),(18,8)],theme.c('accent_fg'),8)
+        d.ellipse((4,4,92,92),fill=color);line([(6,12),(10,16),(18,8)],theme.c('accent_fg'),8)
     elif name=='shutdown':
         d.arc((12,12,84,84),-65,245,fill=color,width=weight);line([(12,2),(12,11)])
     elif name=='restart':
@@ -301,6 +337,26 @@ def cozy_icon(widget,name,size,ink=None):
         ellipse((8,8,16,16))
         for a in range(0,360,45):
             r=math.radians(a);line([(12+8*math.cos(r),12+8*math.sin(r)),(12+10*math.cos(r),12+10*math.sin(r))],color,5)
+    elif name=='calendar':
+        rect((3,5,21,22));line([(3,10),(21,10)],color,5);line([(7,2),(7,7)]);line([(17,2),(17,7)]);line([(8,15),(9,15)],color,5);line([(14,17),(16,14)],color,5)
+    elif name=='sunrise':
+        d.arc((27,32,69,76),180,360,fill=color,width=weight);line([(2,19),(22,19)],color,5)
+        for a in (210,250,290,330):
+            r=math.radians(a);line([(12+8*math.cos(r),15+8*math.sin(r)),(12+10*math.cos(r),15+10*math.sin(r))],color,5)
+    elif name=='bell':
+        line([(5,16),(6,8),(9,4),(15,4),(18,8),(19,16),(5,16)],color,5);line([(9,20),(15,20)],color,5)
+    elif name=='monitor':rect((2,3,22,17));line([(12,17),(12,22),(7,22),(17,22)],color,5)
+    elif name=='document':rect((5,2,19,22));line([(8,7),(16,7)],color,5);line([(8,12),(16,12)],color,5);line([(8,17),(13,17)],color,5)
+    elif name=='keyboard':
+        rect((2,5,22,19))
+        for y in (9,13):
+            for x in (6,10,14,18):line([(x,y),(x+.2,y)],color,5)
+        line([(7,16),(17,16)],color,5)
+    elif name=='database':
+        ellipse((3,2,21,8),color,5);line([(3,5),(3,19)],color,5);line([(21,5),(21,19)],color,5)
+        d.arc((12,60,84,88),0,180,fill=color,width=5);d.arc((12,28,84,56),0,180,fill=color,width=5)
+    elif name=='parameters':
+        rect((2,3,22,21));line([(6,8),(9,11),(6,14)],color,5);line([(12,16),(18,16)],color,5)
     elif name=='sliders':
         for y,x in ((5,16),(12,7),(19,15)):line([(3,y),(21,y)],color,5);d.ellipse(((x-2)*4,(y-2)*4,(x+2)*4,(y+2)*4),fill=theme.c('card'),outline=color,width=5)
     elif name=='enqueue':line([(3,6),(14,6)]);line([(3,12),(14,12)]);line([(3,18),(11,18)]);line([(18,13),(18,21)]);line([(14,17),(22,17)])

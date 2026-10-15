@@ -31,6 +31,10 @@ class QueueView:
             self.resizable(False, False)
             self.transient(app.root)
 
+        if embedded:
+            from ui_queue_cards import QueueCards
+            self.cards=QueueCards(self);return
+
         head = tk.Frame(self, bg=theme.c("header_bg"))
         if not embedded: head.pack(fill="x")
         tk.Label(head, text=self.T("queue_title"), bg=theme.c("header_bg"),
@@ -88,6 +92,7 @@ class QueueView:
                 return
         except Exception:
             return
+        if hasattr(self,'cards'):self.cards.refresh();return
         keep = set(self.tv.selection())
         for iid in self.tv.get_children():
             self.tv.delete(iid)
@@ -142,7 +147,7 @@ class QueueView:
             task=next(t for t in self.app.task_queue if t['id']==ids[0])
             from task_features import editable
             editable(self.app,ids[0])
-            dlg=TaskEditor(self.app,task,parent=self.owner,modes=('countdown','datetime','interval'));self.wait_window(dlg);show(self.owner);self.owner.grab_set()
+            dlg=TaskEditor(self.app,task,parent=self.owner,modes=('countdown','datetime','interval'));self.wait_window(dlg)
             if dlg.result:self.app.edit_queue_task(ids[0],dlg.result)
         except (ValueError,OSError) as exc:messagebox.showerror('不能编辑',str(exc),parent=self)
 
@@ -158,7 +163,7 @@ class QueueView:
         except (ValueError,OSError) as exc:messagebox.showerror('排序失败',str(exc),parent=self)
 
     def _template(self):
-        from tkinter import simpledialog
+        import ui_template_name as simpledialog
         from task_store import save_template
         ids=self._ids()
         if len(ids)!=1:messagebox.showinfo('保存模板','请只选择一个任务。',parent=self);return

@@ -4,7 +4,8 @@ import datetime as dt
 import os
 import tkinter as tk
 from ui_window import prepare, show, button_grid
-from tkinter import ttk,filedialog,simpledialog
+from tkinter import ttk,filedialog
+import ui_template_name as simpledialog
 from ui_localize import messagebox
 from actions import action_label
 from task_store import normalize,snapshot,save_template,export_backup,read_backup,import_backup
@@ -29,8 +30,8 @@ def button(parent,text,command,kind='normal'):
     return flat_button(parent,local_text(parent,text),command,kind=kind,font=theme.font(delta=-1),padx=8,pady=5)
 
 class TaskEditor(tk.Toplevel):
-    def __init__(self,app,task=None,parent=None,modes=None,title='编辑任务'):
-        super().__init__(parent or app.root);prepare(self);self.app=app;self.result=None
+    def __init__(self,app,task=None,parent=None,modes=None,title='编辑任务',validate=None):
+        super().__init__(parent or app.root);prepare(self);self.app=app;self.result=None;self.validate=validate
         if task is None:
             try:task=app.current_task_snapshot()
             except ValueError:task={'action':app._current_action(),'mode':'countdown','seconds':60,**{k:app.cfg.get(k) for k in ('program_path','sound_file','message_text','force_close_apps')}}
@@ -121,7 +122,7 @@ class TaskEditor(tk.Toplevel):
         if ACTION_NAMES[self.action.current()]=="close_program":
             from ui_close_program import CloseProgramDialog
             dlg=CloseProgramDialog(self.app,parent=self,initial=self.v["parameter"].get());self.wait_window(dlg)
-            show(self);self.grab_set();f=dlg.result
+            f=dlg.result
         else:f=filedialog.askopenfilename(parent=self)
         if f:self.v['parameter'].set(f)
     def pick_folder(self):
@@ -153,7 +154,10 @@ class TaskEditor(tk.Toplevel):
         if mode=='chain':task.update(prepare_path=self.v['prepare_path'].get(),prepare_args=self.v['prepare_args'].get(),timeout_seconds=float(self.v['timeout_hours'].get())*3600)
         return normalize(task)
     def save(self):
-        try:self.result=self.collect()
+        try:
+            result=self.collect()
+            if self.validate:self.validate(result)
+            self.result=result
         except (ValueError,TypeError) as exc:messagebox.showerror('任务设置有误',str(exc),parent=self);return
         self.destroy()
 
@@ -166,24 +170,31 @@ class TaskView:
         if not embedded:
             self.title(local_text(self,'高级任务' if advanced else '常用任务模板'))
             self.transient(parent or app.root);self.resizable(True,True)
-        label(self,'具体日期与重复预约在这里设置；保存后需手动启用。' if advanced else '按名称保存任务，双击编辑；使用时会复制到队列。',wraplength=640,justify='left').pack(fill='x',padx=12,pady=12)
+        from ui_window import wrap_to_width
+        wrap_to_width(label(self,'具体日期与重复预约在这里设置；保存后需手动启用。' if advanced else '按名称保存任务，双击编辑；使用时会复制到队列。',wraplength=480,justify='left')).pack(fill='x',padx=8,pady=8)
         cols=('name','action','when','state');wrap=tk.Frame(self,bg=theme.c('bg'));wrap.pack(fill='both',expand=True,padx=12)
-        self.tv=ttk.Treeview(wrap,columns=cols,show='headings',height=10,selectmode='browse')
+        self.table_border=tk.Frame(wrap,bg='#B9ABE1',padx=1,pady=1)
+        self.table_border.grid(row=0,column=0,sticky='nsew');wrap.columnconfigure(0,weight=1);wrap.rowconfigure(0,weight=1)
+        table_body=tk.Frame(self.table_border,bg=theme.c('card'));table_body.pack(fill='both',expand=True)
+        self.tv=ttk.Treeview(table_body,columns=cols,show='headings',height=10,selectmode='browse')
         for key,title,width in zip(cols,('名称','操作','执行方式','状态'),(140,110,220,160)):
             self.tv.heading(key,text=local_text(self,title),anchor='w');self.tv.column(key,width=width,anchor='w')
-        self.tv.pack(side='left',fill='both',expand=True);sb=ttk.Scrollbar(wrap,command=self.tv.yview);sb.pack(side='right',fill='y');self.tv.config(yscrollcommand=sb.set)
-        hs=ttk.Scrollbar(self,orient='horizontal',command=self.tv.xview);hs.pack(fill='x',padx=12);self.tv.config(xscrollcommand=hs.set)
-        for col in cols:self.tv.column(col,stretch=embedded and col=='state')
+        self.tv.pack(fill='both',expand=True,padx=3,pady=2);sb=ttk.Scrollbar(wrap,command=self.tv.yview);sb.grid(row=0,column=1,sticky='ns');self.tv.config(yscrollcommand=sb.set)
+        controls=tk.Frame(self,bg=theme.c('bg'));controls.pack(side='bottom',before=wrap,fill='x')
+        hs=ttk.Scrollbar(self,orient='horizontal',command=self.tv.xview);hs.pack(side='bottom',before=wrap,fill='x',padx=12);self.tv.config(xscrollcommand=hs.set)
+        for col in cols:self.tv.column(col,stretch=False,minwidth=40)
+        self._column_layout=None
+        self.tv.bind('<Configure>',lambda e:self._layout_columns())
         self.tv.bind('<Double-1>',lambda e:self.safe(self.edit))
-        bar=tk.Frame(self,bg=theme.c('bg'));bar.pack(fill='x',padx=12,pady=10)
+        bar=tk.Frame(controls,bg=theme.c('bg'));bar.pack(fill='x',padx=12,pady=10)
         edits=[('新建',self.add),('编辑',self.edit),('复制',self.duplicate),('删除',self.remove)]
         button_grid(bar,[(local_text(self,text),lambda fn=fn:self.safe(fn),'normal') for text,fn in edits])
-        foot=tk.Frame(self,bg=theme.c('bg'));foot.pack(fill='x',padx=12,pady=(0,12))
+        foot=tk.Frame(controls,bg=theme.c('bg'));foot.pack(fill='x',padx=12,pady=(0,12))
         actions=[('启用／停用',self.toggle)] if advanced else [('加入队列',self.use),('保存主页面当前设定',self.capture)]
         items=[(local_text(self,text),lambda fn=fn:self.safe(fn),'accent' if index==0 else 'normal') for index,(text,fn) in enumerate(actions)]
         if not embedded: items.append((local_text(self,'关闭'),self.destroy,'normal'))
         button_grid(foot,items)
-        extra=tk.Frame(self,bg=theme.c('bg'));extra.pack(fill='x',padx=12,pady=(0,12))
+        extra=tk.Frame(controls,bg=theme.c('bg'));extra.pack(fill='x',padx=12,pady=(0,12))
         if advanced:
             from ui_extras import PreviewWindow
             button_grid(extra,[(local_text(self,'今天跳过一次'),lambda:self.safe(self.skip_today),'normal'),(local_text(self,'未来7天任务预览'),lambda:PreviewWindow(app,self.owner),'normal')])
@@ -191,6 +202,24 @@ class TaskView:
         self.refresh_status()
         if not embedded:
             app._apply_window_chrome(self);self.bind('<Escape>',lambda e:self.destroy());show(self);self.grab_set();self.focus_set()
+    def _layout_columns(self):
+        # Measure the actual localized text; retain horizontal scrolling for narrow windows.
+        from tkinter import font as tkfont
+        from ui_cozy import scale
+        style=ttk.Style(self);name=self.tv.cget('style') or 'Treeview';s=scale(self)
+        body=tkfont.Font(root=self,font=style.lookup(name,'font') or theme.font())
+        heading=tkfont.Font(root=self,font=style.lookup(name+'.Heading','font') or theme.font(bold=True))
+        cols=('name','action','when','state');padding=round(24*s)
+        values=[self.tv.item(i,'values') for i in self.tv.get_children()]
+        widths=[max(round(minimum*s),heading.measure(self.tv.heading(col,'text'))+padding,
+                    max((body.measure(row[i])+padding for row in values),default=0))
+                for i,(col,minimum) in enumerate(zip(cols,(80,100,180,70)))]
+        extra=max(0,self.tv.winfo_width()-4-sum(widths))
+        widths[0]+=round(extra*.35);widths[2]+=extra-round(extra*.35)
+        key=(tuple(widths),name)
+        if key==self._column_layout:return
+        self._column_layout=key
+        for col,width in zip(cols,widths):self.tv.column(col,width=width,stretch=False)
     def items(self):return self.app.automation.jobs if self.advanced else self.app.cfg.get('templates') or []
     def safe(self,fn):
         old_templates=copy.deepcopy(self.app.cfg.get('templates') or [])
@@ -216,9 +245,17 @@ class TaskView:
             if self.tv.exists(iid):self.tv.item(iid,values=values)
             else:self.tv.insert('','end',iid=iid,values=values)
         if selected and self.tv.exists(selected[0]):self.tv.selection_set(selected)
+        self._layout_columns()
     def editor(self,task=None):
         modes=('calendar','download','network','combined','chain') if self.advanced else None
-        dlg=TaskEditor(self.app,task,parent=self.owner,modes=modes);self.wait_window(dlg);show(self.owner);self.owner.grab_set();return dlg.result
+        identifier=task.get('id') if task else None
+        def validate(result):
+            if not self.advanced and identifier is None:return
+            if not result['name'] or any(t['name']==result['name'] and t['id']!=identifier for t in self.items()):
+                raise ValueError('请输入不重复的任务名称。')
+        dlg=TaskEditor(self.app,task,parent=self.owner,modes=modes,validate=validate)
+        self.wait_window(dlg)
+        return dlg.result
     def commit(self):
         if self.advanced:self.app.automation.persist()
         elif not self.app.cfg.save():raise OSError('模板保存失败')

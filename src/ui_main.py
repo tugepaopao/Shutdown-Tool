@@ -153,6 +153,7 @@ class App(object):
         except OSError:
             self.cfg["keep_display_on"] = False
         self.engine = TimerEngine(self.emit)
+        self.engine.warning_seconds=int(self.cfg.get("warning_seconds",10))
         self.tray = None
         self.toast = None
         self.action_widgets = {}
@@ -175,6 +176,8 @@ class App(object):
 
         self.build_ui()
         self.bind_events()
+        from ui_runtime_context import install
+        install(self)
         self._init_tray()
 
         self.root.after(100, self._pump)
@@ -425,15 +428,10 @@ class App(object):
         return menu
 
     def _open_avatar_menu(self, event=None):
-        menu = self._build_avatar_menu()
-        try:
-            menu.tk_popup(self.avatar_btn.winfo_rootx() - 120,
-                          self.avatar_btn.winfo_rooty() + self.avatar_btn.winfo_height() + 2)
-        finally:
-            try:
-                menu.grab_release()
-            except Exception:
-                pass
+        from ui_popup_menu import VioletMenu
+        popup=getattr(self,'_avatar_popup',None)
+        if popup and popup.winfo_exists():popup.dismiss()
+        menu=self._build_avatar_menu();self._avatar_popup=VioletMenu(self,menu)
         return menu
 
     # ------------------------------------------------------------ 侧边导航
@@ -990,7 +988,7 @@ class App(object):
 
     def _on_esc(self, _e=None):
         if self.cfg.get("esc_to_minimize"):
-            self.hide_to_tray()
+            self.root.iconify()
 
     def _on_action_pick(self):
         self.cfg["action"] = self.action_var.get()
@@ -1276,6 +1274,8 @@ class App(object):
         现在给一个明确的出口。
         """
         from ui_dialogs import FadeMessageBox
+        import math
+        warning=max(1,min(int(self.cfg.get("warning_seconds",10)),math.ceil(self.engine.remaining())))
         task = self._active_task or {}
         action = task.get("action") or self._current_action()
         self._close_cancel_toast()
@@ -1283,8 +1283,8 @@ class App(object):
             toast = FadeMessageBox(
                 self.root, self.T("tip_cancel_title"),
                 self.T("cancel_toast_text", a=action_label(action, self.T),
-                       s=int(WARN_SECONDS)),
-                seconds=int(WARN_SECONDS), on_close=lambda: self._cancel_toast_closed(toast),
+                       s=warning),
+                seconds=warning, on_close=lambda: self._cancel_toast_closed(toast),
                 button_text=self.T("btn_cancel_action"),
                 on_button=self._cancel_by_user,
                 extra_buttons=[(f"延后 {m} 分钟", lambda minutes=m: self.postpone(minutes)) for m in (5,10,30)])
@@ -1323,6 +1323,11 @@ class App(object):
         self.queue.put((event, payload))
 
     def _pump(self):
+        # Native restore can arrive without a Tk Map event; complete it on
+        # the existing UI pump, without Tcl calls from the Win32 callback.
+        if getattr(self.root,"_native_restore_cloaked",False) and self.root.state()=="normal":
+            from ui_window import present_main
+            present_main(self.root)
         try:
             while True:
                 event, payload = self.queue.get_nowait()
@@ -1361,6 +1366,7 @@ class App(object):
             if self.cfg.get("cancel_at_10s", True):
                 self._show_cancel_toast()
         elif event == "paused":
+            self._close_cancel_toast()
             self._set_status("status_due_paused",
                              t=format_remain(payload.get("remain", 0), T),
                              d=self._due_text())
@@ -1402,14 +1408,17 @@ class App(object):
                 if self.tray:
                     self.tray.refresh()
                 # 跑完的这个任务从队列里摘掉，稍后接着跑下一个
-                if self._active_task is not None and self._active_task in self.task_queue:
+                queued = self._active_task is not None and self._active_task in self.task_queue
+                if queued:
                     self.task_queue.remove(self._active_task)
                     self._save_queue()
                     self.cfg.save()
                 self._active_task = None
 
-                if self.task_queue:
-                    self.root.after(1200, self._start_next_task)
+                # A directly started single task never resumes an unrelated queue.
+                if queued and self.task_queue:
+                    generation=self.engine.generation
+                    self.root.after(1200,lambda:self._start_next_task() if self.engine.generation==generation else None)
         elif event == "action_done":
             a = payload.get("action") or self._current_action()
             self._set_status("status_executed", a=action_label(a, T))
@@ -1580,8 +1589,7 @@ class App(object):
         self.floating.apply()
         settings=getattr(self,'_settings_win',None)
         if settings and settings.winfo_exists():
-            dirty=settings.dirty;settings.v['float_enabled'].set(not previous)
-            settings.dirty=dirty;settings._set_apply_enabled(dirty)
+            settings.sync_external('float_enabled',not previous)
         if self.tray:self.tray.refresh()
 
     def open_settings(self):
@@ -1590,7 +1598,8 @@ class App(object):
         if win is not None:
             try:
                 if win.winfo_exists():
-                    win.lift()
+                    from ui_window import activate_dialog
+                    activate_dialog(win)
                     return win
             except Exception:
                 pass
@@ -1614,7 +1623,9 @@ class App(object):
         from ui_task_center import TaskCenter
         win=getattr(self,'_task_center_win',None)
         if win and win.winfo_exists():
-            win.select_tab(tab);show(win);win.grab_set();win.lift();return win
+            win.select_tab(tab)
+            from ui_window import activate_dialog
+            activate_dialog(win);return win
         win=TaskCenter(self, tab=tab, parent=parent)
         self._task_center_win=self._queue_win=self._advanced_win=win
         return win
@@ -1630,7 +1641,8 @@ class App(object):
             try:
                 if win.winfo_exists():
                     win.refresh()
-                    win.lift()
+                    from ui_window import activate_dialog
+                    activate_dialog(win)
                     return win
             except Exception:
                 pass
@@ -1694,27 +1706,15 @@ class App(object):
         return spec
 
     def _refresh_preset_labels(self):
-        """按当前设置刷新「快捷预设」按钮文案（后两个按钮的时间可自定义）。"""
-        T = self.T
-        for key, spec in QUICK_PRESETS:
-            btn = getattr(self, "preset_btns", {}).get(key)
-            if btn is None:
-                continue
-            real = self.preset_spec(spec)
-            try:
-                if real[0]=='custom':
-                    label=i18n.feature_text(T,'今天' if real[1]==0 else ('后天' if real[1]==2 else str(real[1])+'天后'))
-                    btn.config(text=label+f' {real[2]:02}:{real[3]:02}')
-                elif real[0] == "at":
-                    btn.config(text=T("quick_at_fmt", h="%02d" % real[1],
-                                      m="%02d" % real[2]))
-                elif real[0] == "tmr":
-                    btn.config(text=T("quick_tmr_fmt", h="%02d" % real[1],
-                                      m="%02d" % real[2]))
-                else:
-                    btn.config(text=T(key))
-            except Exception:
-                pass
+        import quick_presets
+        from ui_compact import set_icon
+        values=quick_presets.get(self.cfg)
+        for index,(key,_) in enumerate(QUICK_PRESETS):
+            btn=getattr(self,'preset_btns',{}).get(key)
+            if btn:
+                value=values[index];btn.config(text=quick_presets.caption(value,self.T))
+                name='clock'
+                set_icon(self,btn,name,20)
 
     def apply_preset(self, spec):
         """快捷预设：一键把时间填好并立即开始。
@@ -1902,7 +1902,8 @@ class App(object):
 
 
     def apply_settings(self):
-        """设置点「应用」时调用：外观原位更新，保留控件与计时。返回是否重建。"""
+        """设置点「保存」时调用：外观原位更新，保留控件与计时。"""
+        self.engine.warning_seconds=int(self.cfg.get("warning_seconds",10))
         import ui_transition
         ui_transition.finish(self)
         from ui_skin_transition import SkinFade

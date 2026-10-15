@@ -139,7 +139,7 @@ def read_backup(path):
         if isinstance(default,str) and (not isinstance(value,str) or len(value)>10000):raise ValueError(key+'类型错误')
         settings[key]=value
     if settings.get('skin')=='custom':settings['skin']='solid'
-    enums={'skin':set(__import__('skins').SKIN_CHOICES),'language':{'CHS','CHT','EN'},'theme_mode':{'light','dark','system'},'font_size':{'small','normal','large','huge'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'},'action':ACTIONS,'mode':{'countdown','datetime','interval'}}
+    enums={'skin':set(__import__('skins').ACCEPTED_SKINS),'language':{'CHS','CHT','EN'},'theme_mode':{'light','dark','system'},'font_size':{'small','normal','large','huge'},'accent':{'blue','teal','green','orange','red','pink','purple','indigo'},'action':ACTIONS,'mode':{'countdown','datetime','interval'}}
     for key,values in enums.items():
         if key in settings and settings[key] not in values:raise ValueError(key+'值不受支持')
     templates=[];jobs=[]
@@ -156,7 +156,7 @@ def read_backup(path):
                 task['enabled']=False
             target.append(task)
     from desktop_services import parse_hotkey
-    for key in ('hotkey_show','hotkey_pause','hotkey_resume'):
+    for key in ('hotkey_show','hotkey_pause','hotkey_resume','hotkey_floating'):
         if key in settings:parse_hotkey(settings[key])
     settings['float_positioned']=False;settings['float_docked']=False
     settings['float_enabled']=False
@@ -165,11 +165,20 @@ def read_backup(path):
     settings['quick_at_today']='22:00'
     settings['theme_mode']='light'
     settings['font_size']='normal'
+    import quick_presets
+    settings['quick_presets']=quick_presets.validate(settings['quick_presets']) if settings.get('quick_presets') else quick_presets.defaults(settings)
+    if 'resume_strategy' not in settings:settings['resume_strategy']='continue' if settings.get('resume_timer',True) else 'off'
+    if settings.get('resume_strategy') not in ('ask','paused','continue','off'):raise ValueError('恢复方式无效')
+    if settings.get('warning_seconds',10) not in (10,30,60):raise ValueError('提醒提前量无效')
     return settings,templates,jobs
 
-def import_backup(cfg,path):
-    settings,templates,jobs=read_backup(path)
+def import_backup(cfg,path,scopes=None,data=None):
+    settings,templates,jobs=data or read_backup(path)
+    scopes={'settings','templates','automations'} if scopes is None else set(scopes)
+    if not scopes or not scopes<={'settings','templates','automations'}:raise ValueError('恢复范围无效')
     old=copy.deepcopy(cfg.data)
-    cfg.update(settings);cfg['templates']=templates;cfg['automations']=jobs
+    if 'settings' in scopes:cfg.update(settings)
+    if 'templates' in scopes:cfg['templates']=templates
+    if 'automations' in scopes:cfg['automations']=jobs
     if not cfg.save():cfg.data=old;raise OSError('保存失败，原设置已保留')
-    return len(templates),len(jobs)
+    return len(templates) if 'templates' in scopes else 0,len(jobs) if 'automations' in scopes else 0
