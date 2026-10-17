@@ -93,6 +93,8 @@ class QueueCards:
         order=round(44*self.s);actions=round(78*self.s)
         available=max(2,width-order-actions);task=round(available*.40)
         widths=(order,task,available-task,actions);gap=round(6*self.s)
+        # Align the heading with the text after the task icon, not the icon itself.
+        self.headings[1].grid_configure(padx=(gap+round(20*self.s),gap))
         for frame in [self.header]+[widgets[0] for widgets in self.rows.values()]:
             for i,value in enumerate(widths):frame.columnconfigure(i,minsize=value,weight=0)
         for row,number,title,condition,buttons in self.rows.values():
@@ -101,7 +103,7 @@ class QueueCards:
     def toggle_pause(self):
         self.app.toggle_pause();self.refresh()
     def tr(self,t):return feature_text(self.app.T,t)
-    def label(self,p,text,small=False,bold=False):return tk.Label(p,text=self.tr(text),bg=p.cget('bg'),fg=C['muted'] if small else C['fg'],font=theme.font(delta=-2 if small else 0,bold=bold),anchor='w',justify='left')
+    def label(self,p,text,small=False,bold=False):return tk.Label(p,text=self.tr(text),bg=p.cget('bg'),fg=C['muted'] if small else C['fg'],font=theme.font(delta=-2 if small else 0,bold=bold),anchor='w',justify='left',bd=0,padx=0)
     def refresh(self):
         running=self.app.engine.is_running();active=self.app._active_task or {};identifier=active.get('id') if running else None
         tasks=[t for t in self.app.get_queue() if t.get('id')!=identifier]

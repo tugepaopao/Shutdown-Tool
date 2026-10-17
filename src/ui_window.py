@@ -269,6 +269,8 @@ def activate_dialog(window):
     show(target)
     target.update_idletasks()
     if getattr(target,'_violet_dialog',False):present_dialog(target)
+    from ui_workspace import keep_visible
+    keep_visible(target)
     target.lift()
     target.focus_set()
     return target

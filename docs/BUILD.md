@@ -1,4 +1,4 @@
-# v2.0 源码运行与构建
+# v2.0.4 源码运行与构建
 
 需要 Windows 10/11 x64、带 Tcl/Tk 的 Python 3.12 x64。正式运行时为 Python 3.12.14，依赖固定于 requirements.txt。安装包另需 Inno Setup 6.5+。
 
@@ -10,7 +10,7 @@ py -3.12 -m venv .venv
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\setup.iss
 ```
 
-单文件程序为 dist/定时关机工具.exe，安装包为 output/Shutdown-Tool-v2.0-Setup.exe。默认图标及紫樱素材已预生成，构建无需重绘。build.bat 可完成以上两个构建步骤。
+单文件程序为 dist/定时关机工具.exe，安装包为 output/Shutdown-Tool-v2.0.4-Setup.exe。默认图标及紫樱素材已预生成，构建无需重绘。build.bat 可完成以上两个构建步骤。
 
 公开版不包含 assets/audio，sound_library 仅接受用户选择的路径；旧 builtin 标识解析为空，不读取缺失资源。保留公开版安装 GUID、APP_ID 和启动项兼容身份。
 
@@ -20,7 +20,8 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe tools\self_test.py
 .\.venv\Scripts\python.exe tools\public_regression.py
 .\.venv\Scripts\python.exe tools\settings_layout_regression.py 1.25
-.\.venv\Scripts\python.exe tools\window_regression.py 1.25
+.\.venv\Scripts\python.exe tools\workspace_regression.py 1.0
+.\.venv\Scripts\python.exe tools\library_cards_regression.py
 .\.venv\Scripts\python.exe tools\workflow_regression.py 1.25
 .\.venv\Scripts\python.exe tools\task_center_regression.py 1.25
 ```

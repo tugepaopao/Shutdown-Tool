@@ -181,7 +181,6 @@ class App(object):
         self._init_tray()
 
         self.root.after(100, self._pump)
-        self.root.after(300, self._poll_single_instance)
         self._apply_cli()
         # 恢复上次没跑完的定时（v1.2.0）；放在 CLI 之后，命令行参数优先
         self.root.after(600, self._maybe_resume_timer)
@@ -232,7 +231,7 @@ class App(object):
 
     def _apply_icon(self, win):
         try:
-            ico = resource_path("assets/icon_app.ico")
+            ico = resource_path("assets/icon.ico")
             if not os.path.exists(ico):
                 ico = resource_path("assets/icon.ico")
             if os.path.exists(ico):
@@ -892,7 +891,11 @@ class App(object):
         try:
             import ctypes
             u = ctypes.windll.user32
-            hwnd = u.GetAncestor(self.root.winfo_id(), 2) or self.root.winfo_id()
+            modal=self.root.grab_current()
+            target=modal.winfo_toplevel() if modal is not None else self.root
+            u.GetAncestor.argtypes=[ctypes.c_void_p,ctypes.c_uint]
+            u.GetAncestor.restype=ctypes.c_void_p
+            hwnd = u.GetAncestor(target.winfo_id(), 2) or target.winfo_id()
             if not hwnd or not u.IsWindow(hwnd):
                 return
             u.GetWindowLongW.restype = ctypes.c_long
@@ -1323,18 +1326,24 @@ class App(object):
         self.queue.put((event, payload))
 
     def _pump(self):
+        if getattr(self,"_closing_app",False):return
         # Native restore can arrive without a Tk Map event; complete it on
         # the existing UI pump, without Tcl calls from the Win32 callback.
         if getattr(self.root,"_native_restore_cloaked",False) and self.root.state()=="normal":
             from ui_window import present_main
             present_main(self.root)
+        self._poll_single_instance()
+        import time
+        budget=time.perf_counter()+.008
         try:
-            while True:
+            for _ in range(100):
                 event, payload = self.queue.get_nowait()
                 self._handle(event, payload)
+                if getattr(self,"_closing_app",False):return
+                if time.perf_counter()>=budget:break
         except queue.Empty:
             pass
-        self.root.after(100, self._pump)
+        self.root.after(1 if not self.queue.empty() else 100, self._pump)
 
     def _handle(self, event, payload):
         if event == "ui_call":
@@ -1434,11 +1443,8 @@ class App(object):
     # ================================================================ 窗口行为
     def show_window(self):
         try:
-            from ui_window import show
-            show(self.root)
-            self.root.state("normal")
-            self.root.lift()
-            self.root.focus_force()
+            from ui_workspace import restore_workspace
+            restore_workspace(self)
         except Exception:
             pass
         # 窗口重新显示后，再确认一次「最大化」按钮处于隐藏状态。
@@ -1452,6 +1458,7 @@ class App(object):
         """有别的实例启动时（它已用 SetEvent 通知我们），把窗口唤到前台。
 
         为什么用轮询而不是直接收 Windows 消息：
+        复用主事件队列的检查，不再额外创建 400 ms 的 Tk 定时器。
         Tk 没有对外暴露「任意 Win32 消息」的回调口子，自己子类化窗口过程太重。
         改成已有实例定时问一次事件对象 —— 收到通知后走的是本进程自己的
         show_window()，Tk 的窗口状态永远是对的（这一点比 FindWindow +
@@ -1461,10 +1468,6 @@ class App(object):
             if self._single is not None and self._single.has_pending_show():
                 self.show_window()
                 self._force_foreground()
-        except Exception:
-            pass
-        try:
-            self.root.after(400, self._poll_single_instance)
         except Exception:
             pass
 
@@ -1479,7 +1482,11 @@ class App(object):
         try:
             import ctypes
             u = ctypes.windll.user32
-            hwnd = u.GetAncestor(self.root.winfo_id(), 2) or self.root.winfo_id()
+            modal=self.root.grab_current()
+            target=modal.winfo_toplevel() if modal is not None else self.root
+            u.GetAncestor.argtypes=[ctypes.c_void_p,ctypes.c_uint]
+            u.GetAncestor.restype=ctypes.c_void_p
+            hwnd = u.GetAncestor(target.winfo_id(), 2) or target.winfo_id()
             if not hwnd or not u.IsWindow(hwnd):
                 return
             u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
@@ -1532,10 +1539,8 @@ class App(object):
                 return
             except Exception:
                 pass
-        try:
-            self.root.withdraw()
-        except Exception:
-            pass
+        from ui_workspace import hide_workspace
+        hide_workspace(self)
         if hint and self.tray and not self._tray_hint_shown:
             self._tray_hint_shown = True
             self.tray.notify(self.T("app_name"), self.T("tray_minimized_tip"))
@@ -1556,6 +1561,9 @@ class App(object):
         self.quit_app()
 
     def quit_app(self):
+        from ui_workspace import allow_exit
+        if not allow_exit(self):return
+        self._closing_app=True
         if getattr(self, "floating", None): self.floating.close()
         self.display_awake.close()
         if getattr(self, "automation", None): self.automation.close()
@@ -1593,6 +1601,9 @@ class App(object):
         if self.tray:self.tray.refresh()
 
     def open_settings(self):
+        from ui_workspace import active_modal
+        modal=active_modal(self.root)
+        if modal is not None:return modal
         from ui_settings import SettingsWindow
         win = self._settings_win
         if win is not None:
@@ -1615,11 +1626,14 @@ class App(object):
 
     def open_about(self):
         from ui_dialogs import AboutDialog
-        win = AboutDialog(self.root, self.T, self._img("assets/icon_app.png", 72))
+        win = AboutDialog(self.root, self.T, self._img("assets/icon.png", 72))
         self._apply_window_chrome(win)
         return win
 
     def open_task_center(self, tab='queue', parent=None):
+        from ui_workspace import active_modal
+        modal=active_modal(self.root)
+        if modal is not None:return modal
         from ui_task_center import TaskCenter
         win=getattr(self,'_task_center_win',None)
         if win and win.winfo_exists():
@@ -1635,6 +1649,9 @@ class App(object):
 
     def open_log(self):
         """打开「执行日志」窗口。"""
+        from ui_workspace import active_modal
+        modal=active_modal(self.root)
+        if modal is not None:return modal
         from ui_log import LogWindow
         win = self._log_win
         if win is not None:

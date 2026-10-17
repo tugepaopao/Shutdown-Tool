@@ -23,8 +23,6 @@ a = Analysis(
         # 注意：母图本身不打进包里，只打生成好的成品图
         ('assets/icon.ico', 'assets'),        # 桌面 / 安装包 / 便携版文件图标
         ('assets/icon.png', 'assets'),
-        ('assets/icon_app.ico', 'assets'),    # 系统标题栏 / 任务栏 / 托盘图标（与 icon.ico 同源同内容）
-        ('assets/icon_app.png', 'assets'),
         ('assets/icon_gear.png', 'assets'),   # 主界面顶栏右上角头像菜单（设置齿轮）
     ],
     hiddenimports=[
@@ -35,7 +33,7 @@ a = Analysis(
         'PIL.ImageTk',
         # v1.2.0：下面这几个是在函数内部延迟 import 的，显式写进来更保险
         'run_log',
-        'ui_queue', 'ui_task_center',
+        'ui_queue', 'ui_task_center', 'ui_library_cards',
         'ui_log',
         'ui_settings',
         'ui_dialogs', 'ui_reminder',

@@ -12,7 +12,7 @@ def valid(key):return 'violet'
 
 def path(key,preview=False):
  base=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent.parent))
- return base/'assets'/'skins'/((valid(key)+'-preview.png') if preview else (valid(key)+'.png'))
+ return base/'assets'/'skins'/(valid(key)+'.png')
 @lru_cache(maxsize=len(SKIN_ORDER))
 def artwork(key):
  with Image.open(path(key)) as im:return im.convert('RGB')

@@ -35,7 +35,6 @@ class LogWindow(tk.Toplevel):
         self.title(self.T("log_title"))
         self.configure(bg=theme.c("bg"))
         self.resizable(True, True)
-        self.transient(app.root)
 
         wrap_to_width(tk.Label(self, text=self.T("log_hint"), bg=theme.c("bg"),
                  fg=theme.c("fg_dim"), font=theme.font(delta=-1), anchor="w",

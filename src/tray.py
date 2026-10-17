@@ -16,15 +16,13 @@ except Exception:               # pragma: no cover
 
 
 def load_icon_image():
-    """托盘图标：优先「电源开关球」icon_app.png，依次回退 icon_app.ico /
-    icon.png / icon.ico，都读不到就程序化画一个蓝色电源圆环。"""
+    """托盘图标：共享电源图标 PNG/ICO，读取失败时绘制蓝色电源圆环。"""
     try:
         from PIL import Image, ImageDraw
     except Exception:
         return None
 
-    for name in ("assets/icon_app.png", "assets/icon_app.ico",
-                 "assets/icon.png", "assets/icon.ico"):
+    for name in ("assets/icon.png", "assets/icon.ico"):
         p = resource_path(name)
         if os.path.exists(p):
             try:

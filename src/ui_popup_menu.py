@@ -22,6 +22,7 @@ class VioletMenu(tk.Toplevel):
             label=menu.entrycget(index,'label').strip();longest=max(longest,font.measure(label));slot=tk.Frame(body,bg=COLORS['menu'],height=row_height);slot.pack(fill='x',pady=1);slot.pack_propagate(False)
             b=flat_button(slot,label,lambda i=index:self.select(i),kind='normal',padx=round(9*s),pady=3);b._bg=COLORS['menu'];b._hover=COLORS['hover'];b._fg=COLORS['fg'];b.configure(bg=b._bg,activebackground=b._hover,fg=b._fg,anchor='w',compound='left',image=menu_icon(self,icons[icon_index],round(17*s)))
             b._theme_photo=b.cget('image');b.pack(fill='both',expand=True);self.buttons.append(b);self.items.append(index);icon_index+=1
+            if menu.entrycget(index,'state')=='disabled':b.configure(state='disabled')
             b.bind('<Enter>',lambda e,k=len(self.buttons)-1:self.highlight(k),add='+')
         self.update_idletasks();width=max(round(180*s),longest+round(58*s));height=self.winfo_reqheight();button=anchor or app.avatar_btn
         from ui_floating import workareas

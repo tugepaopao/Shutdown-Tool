@@ -121,7 +121,9 @@ class FloatingController:
         elif self.window is not None:
             if self.window.winfo_exists():self.window.destroy()
             self.window=None
-        self.job=self.app.root.after(100,self.tick)
+        # Disabled windows have no polling job; settings/shortcuts call apply().
+        if self.app.cfg.get("float_enabled"):
+            self.job=self.app.root.after(250,self.tick)
     def apply(self):
         if self.job:self.app.root.after_cancel(self.job);self.job=None
         self.tick()

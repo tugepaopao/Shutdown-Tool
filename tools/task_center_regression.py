@@ -56,7 +56,7 @@ try:
     h=cards.headings[i]
     if i in (0,3):
      if abs(w.winfo_rootx()+w.winfo_width()/2-h.winfo_rootx()-h.winfo_width()/2)>2:return False
-    elif abs(w.winfo_rootx()-h.winfo_rootx())>1:return False
+    elif abs(w.winfo_rootx()+(w._photo.width() if i==1 else 0)-h.winfo_rootx())>1:return False
   return True
  check('queue columns align at default width',aligned())
  original=(center.winfo_width(),center.winfo_height())
@@ -86,24 +86,27 @@ try:
  check('remove item executes via menu',len(a.task_queue)==before and a.undo.available())
  cards.refresh();check('undo becomes enabled',cards.undo.cget('state')=='normal')
  click(cards.undo);check('undo button restores deletion',len(a.task_queue)==before+1)
- # Typical long execution text must fit completely within its own column.
+ # Cards keep fixed columns; long text elides within its own bounds.
  template=task_store.normalize(dict(mode='countdown',action='message',seconds=900,name='休息提醒'))
  template['id']=101;a.cfg['templates']=[template]
  advanced=task_store.normalize(dict(mode='calendar',action='message',name='休息提醒',at='2026-10-20 22:00:00',repeat='once',enabled=False))
  advanced['id']=201;a.automation.jobs=[advanced]
  def table_fits(panel):
-  tv=panel.tv;style=ttk.Style(tv);f=font.Font(root=tv,font=style.lookup(tv.cget('style'),'font'))
-  return all(tv.column(col,'width')>=f.measure(tv.item(i,'values')[j])+round(20*factor) for i in tv.get_children() for j,col in enumerate(('name','action','when','state')))
+  cards=panel.cards
+  return sum(cards.column_widths)==cards.canvas.winfo_width() and all(
+   w.winfo_x()>=0 and w.winfo_x()+w.winfo_width()<=row['frame'].winfo_width()+1
+   and font.Font(root=w,font=w.cget('font')).measure(w.cget('text'))<=w.winfo_width()
+   for row in cards.rows.values() for w in (row['name'],row['condition'],row['edit']))
  from tkinter import ttk
  for lang in ('CHS','EN'):
   a.cfg['language']=lang;a.apply_settings();pump(.2)
   for key in ('templates','advanced'):
    center.select_tab(key);pump(.2);panel=center.panels[key]
-   check(lang+' '+key+' full text fits column with margins',table_fits(panel))
+   check(lang+' '+key+' rendered text fits fixed columns',table_fits(panel))
    if lang=='CHS' and factor==1.25:
     center.lift();center.focus_force();pump(.15);snap(center,'v2.0_'+key+'.png')
    center.geometry(f'{round(560*factor)}x{round(520*factor)}');pump(.15)
-   check(lang+' '+key+' narrow window retains text widths',table_fits(panel))
+   check(lang+' '+key+' narrow window retains card bounds',table_fits(panel))
    __import__('ui_window').compact_show(center,a);__import__('ui_window').present_dialog(center);center.lift();center.focus_force();pump(.1)
  a.cfg['language']='CHS';a.apply_settings();center.select_tab('queue');__import__('ui_window').compact_show(center,a);__import__('ui_window').present_dialog(center);pump(.2)
  if factor==1.25:

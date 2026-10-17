@@ -36,7 +36,7 @@ class SettingsNav(CozyFrame):
 class SettingsWindow(tk.Toplevel):
     def __init__(self,app):
         super().__init__(app.root);prepare(self);self.app=app;self.T=app.T;self.cfg=app.cfg;self.s=scale(self);self.dirty=False;self._closing=False;self._syncing=True;self._pc_panel=None;self.preview_window=None
-        self.title(self.T('set_title'));self.transient(app.root);self.resizable(False,False);self.configure(bg=C['bg'])
+        self.title(self.T('set_title'));self.resizable(False,False);self.configure(bg=C['bg'])
         self.v={};self._load_vars()
         body=tk.Frame(self,bg=C['bg']);body.pack(fill='both',expand=True,padx=round(10*self.s),pady=round(8*self.s))
         nav_width=self._nav_width()
@@ -152,22 +152,21 @@ class SettingsWindow(tk.Toplevel):
         key={'display':'general','other':'tasks','automation':'tasks','desktop':'notifications'}.get(key,key)
         if key==self._current:return
         if hasattr(self,'hotkey_panel'):self.hotkey_panel.end_capture()
-        from ui_dialog_transition import cover,reveal
-        snap=cover(self,self.right)
+        new_page=key not in self._built_pages
         self._ensure_page(key)
         for k,f in self.pages.items():
             if k==key:f.pack(fill='both',expand=True)
             else:f.pack_forget()
-        self._current=key;self.nav.paint(key);apply(self)
+        self._current=key;self.nav.paint(key)
+        if new_page:
+            apply(self,self.pages[key]);self._compact_control_fonts(self.pages[key])
+        if self._pc_panel:self._pc_panel.set_active(key=='pc')
         if hasattr(self,'save_state'):self._paint_save_state()
         if key=='pc':self.pc_panel.refresh()
         if key=='tasks':self._task_counts()
-        self._compact_control_fonts()
-        if snap:snap.lift()
-        reveal(self,snap)
-    def _compact_control_fonts(self):
+    def _compact_control_fonts(self, subtree=None):
         from ui_localize import walk
-        for widget in walk(self):
+        for widget in walk(subtree if subtree is not None else self):
             if isinstance(widget,(ttk.Entry,ttk.Combobox,ttk.Spinbox)):
                 widget.configure(font=self.font())
     def _ensure_page(self,key):

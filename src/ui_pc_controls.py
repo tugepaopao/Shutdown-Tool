@@ -136,8 +136,12 @@ class ControlPanel(tk.Frame):
         self.status.pack(fill='x', pady=(0, 6))
         self.retheme()
         threading.Thread(target=self._worker, name='PC controls', daemon=True).start()
-        self._poll_id = self.after(50, self._poll)
-        self._periodic_id = self.after(4000, self._periodic)
+        self._poll_id = None
+        self._periodic_id = None
+        self._outstanding = 0
+        self._active = False
+        self.bind('<Map>',lambda e:self.set_active(True) if e.widget is self else None,add='+')
+        self.bind('<Unmap>',lambda e:self.set_active(False) if e.widget is self else None,add='+')
 
     def _awake_changed(self):
         from ui_localize import messagebox
@@ -189,15 +193,21 @@ class ControlPanel(tk.Frame):
 
     def _submit(self, fn, callback):
         if not self.closed.is_set():
+            self._outstanding += 1
             self.requests.put((fn, callback))
+            if self._poll_id is None:self._poll_id=self.after(50,self._poll)
 
     def _poll(self):
+        self._poll_id=None
         if self.closed.is_set(): return
         for _ in range(20):
             try: callback, result, error = self.results.get_nowait()
             except queue.Empty: break
-            callback(result, error)
-        self._poll_id = self.after(50, self._poll)
+            self._outstanding=max(0,self._outstanding-1)
+            try:callback(result, error)
+            except Exception:
+                self._root().report_callback_exception(*__import__("sys").exc_info())
+        if self._outstanding and self._poll_id is None:self._poll_id = self.after(50, self._poll)
 
     def _destroyed(self, event):
         if event.widget is not self: return
@@ -208,8 +218,16 @@ class ControlPanel(tk.Frame):
                 except tk.TclError: pass
         self.requests.put(None)
 
+    def set_active(self,active):
+        self._active=bool(active and self.settings._current=="pc" and self.winfo_viewable())
+        if self._periodic_id is not None:
+            self.after_cancel(self._periodic_id);self._periodic_id=None
+        if self._active and not self.closed.is_set():self._periodic_id=self.after(4000,self._periodic)
+
     def _periodic(self):
-        if self.settings._current == 'pc' and not self.refreshing and not self.pending:
+        self._periodic_id=None
+        if not self._active or self.closed.is_set():return
+        if self.settings._current == 'pc' and self.winfo_viewable() and not self.refreshing and not self.pending:
             if time.monotonic()-self.last_detection > 20: self.refresh()
             else: self._submit(self.backend.audio, self._show_audio)
         self._periodic_id = self.after(4000, self._periodic)

@@ -15,7 +15,7 @@ MAX_TASKS=200
 def number(value,low,high,label):
     try:n=float(value)
     except (ValueError,TypeError):raise ValueError(label+'必须是数字')
-    if not math.isfinite(n) or not low<=n<=high:raise ValueError(label+f'应在 {low:g}～{high:g} 之间')
+    if not math.isfinite(n) or not low<=n<=high:raise ValueError(label+f'应在 {low:,}～{high:,} 之间')
     return n
 
 def normalize(task):
@@ -23,6 +23,9 @@ def normalize(task):
     action=task.get('action','message');mode=task.get('mode','countdown')
     if action not in ACTIONS or mode not in MODES:raise ValueError('未知操作或定时方式')
     result={'action':action,'mode':mode,'name':str(task.get('name','')).strip()[:80]}
+    if 'favorite' in task:
+        if not isinstance(task['favorite'],bool):raise ValueError('收藏状态必须是布尔值')
+        result['favorite']=task['favorite']
     for key in PARAMS:
         if key in task:
             if key=='force_close_apps':

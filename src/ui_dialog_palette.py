@@ -6,7 +6,7 @@ from ui_cozy import CozyGroup,scale
 
 COLORS={'bg':'#E3DFF7','card':'#F2F0FC','input':'#F8F7FF','fg':'#302454','muted':'#736C92','hover':'#DAD2F7','selected':'#CDC0EF','border':'#B9ABE1','menu':'#EBE6FC'}
 
-def apply(window):
+def apply(window, subtree=None):
     if window is window._root() or not getattr(window,'_violet_dialog',False):return
     source=theme.p
     roles={'bg':'bg','header_bg':'bg','card':'card','nav_bg':'card','sel_row_bg':'selected','hover':'hover','nav_active_bg':'selected','nav_hover_bg':'hover','input_bg':'input','fg':'fg','input_fg':'fg','fg_dim':'muted','fg_muted':'muted','nav_fg':'muted','head_fg':'muted','border':'border','card_border':'border','divider':'border','head_bg':'card'}
@@ -16,7 +16,7 @@ def apply(window):
         yield w
         for child in w.winfo_children():
             if not isinstance(child,tk.Toplevel):yield from walk(child)
-    for widget in walk(window):
+    for widget in walk(subtree if subtree is not None else window):
         if isinstance(widget,CozyGroup):
             packed=widget.pack_slaves()
             if len(packed)>1:

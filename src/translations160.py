@@ -124,3 +124,13 @@ EN.update({'快捷键格式：Ctrl+Alt+H（字母、数字或F1～F12）':'Short
 EN.update({'删除选中':'Delete selected','清空队列':'Clear queue'})
 
 EN.update({'快捷预设':'Quick presets'})
+
+EN.update({'我的模板':'My templates','下次执行':'Next run','新建任务':'New task',
+    '常用':'Favorite','普通':'Standard','重复':'Repeat','尚未启用':'Not enabled',
+    '暂无已启用任务':'No enabled tasks','条件满足后执行':'When conditions are met',
+    '条件任务（单次）':'Conditional task (once)','新建任务后手动启用':'Create a task, then enable it',
+    '保存常用设定，一键加入队列':'Save setups and add them to the queue',
+    '暂无高级任务，点击“新建任务”开始':'No tasks yet. Select New task to begin.',
+    '暂无模板，可保存主页面当前设定':'No templates yet. Save your current setup.',
+    '收藏状态必须是布尔值':'Favorite must be true or false'})
+EN.update({'{n} 分钟':'{n} min','{n} 秒':'{n} sec','倒计时 {t}':'In {t}','每 {t} 循环':'Every {t}'})

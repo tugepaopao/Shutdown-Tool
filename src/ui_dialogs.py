@@ -4,6 +4,7 @@
 文件作者：@wenhao
 """
 import tkinter as tk
+import webbrowser
 from ui_window import prepare, show, button_grid
 
 from i18n import AUTHOR, VERSION
@@ -93,8 +94,11 @@ class AboutDialog(tk.Toplevel):
         head.pack(fill="x")
         if logo_image is not None:
             self._logo = logo_image
-            tk.Label(head, image=logo_image, bg=theme.c("header_bg"),
-                     bd=0).pack(side="left", padx=(14, 12), pady=12)
+            self.download_link = tk.Label(head, image=logo_image, bg=theme.c("header_bg"),
+                                          bd=0, cursor="hand2", takefocus=True)
+            self.download_link.pack(side="left", padx=(14, 12), pady=12)
+            for event in ("<Button-1>", "<Return>", "<space>"):
+                self.download_link.bind(event, self.open_download)
         right = tk.Frame(head, bg=theme.c("header_bg"))
         right.pack(side="left", fill="both", expand=True, pady=12)
         tk.Label(right, text=T("about_app_name"), bg=theme.c("header_bg"), fg=theme.c("fg"),
@@ -139,6 +143,10 @@ class AboutDialog(tk.Toplevel):
         _center(self, master)
         show(self);self.grab_set()
         self.focus_set()
+
+    def open_download(self, event=None):
+        webbrowser.open("https://github.com/tugepaopao/Shutdown-Tool/releases")
+        return "break"
 
 
 class MessageInputDialog(tk.Toplevel):

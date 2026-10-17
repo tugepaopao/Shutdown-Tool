@@ -9,7 +9,9 @@ from i18n import format_remain
 def current_task(app):
     mode=app.mode_var.get();task={'mode':mode,'action':app._current_action()}
     if mode=='datetime':task.update(weekday=max(0,app.weekday_box.current()),hour=int(app.dt_h.get()),minute=int(app.dt_m.get()),second=int(app.dt_s.get()))
-    else:task['seconds']=app._read_time(mode)[0]
+    else:
+        task['seconds']=app._read_time(mode)[0]
+        if task['seconds']<=0:raise ValueError(app.T('tip_need_time'))
     return snapshot(task,app.cfg)
 
 def start_current(app):

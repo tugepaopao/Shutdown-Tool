@@ -10,7 +10,7 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "2.0"
+VERSION = "2.0.4"
 BUILD_DATE = "2026-10-15"
 
 FEATURE_EN = {

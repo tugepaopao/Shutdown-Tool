@@ -167,6 +167,11 @@ class TaskView:
         else: tk.Toplevel.__init__(self,parent or app.root);prepare(self)
         self.app=app;self.advanced=advanced;self.owner=self.winfo_toplevel()
         self.configure(bg=theme.c('bg'))
+        if embedded:
+            from ui_library_cards import LibraryCards
+            self.cards=LibraryCards(self)
+            self.refresh_status()
+            return
         if not embedded:
             self.title(local_text(self,'高级任务' if advanced else '常用任务模板'))
             self.transient(parent or app.root);self.resizable(True,True)
@@ -235,14 +240,22 @@ class TaskView:
     def selected(self):
         ids=self.tv.selection();return next((t for t in self.items() if ids and str(t['id'])==ids[0]),None)
     def refresh_status(self):
-        selected=self.tv.selection();items=self.items();ids={str(t['id']) for t in items}
+        if hasattr(self,'cards'):
+            self.cards.refresh()
+            return
+        items=self.items()
+        signature=(repr(items),repr(self.app.automation.states) if self.advanced else '',self.app.T.lang)
+        if signature==getattr(self,'_rows_signature',None):return
+        self._rows_signature=signature
+        selected=self.tv.selection();ids={str(t['id']) for t in items}
         for iid in self.tv.get_children():
             if iid not in ids:self.tv.delete(iid)
         for task in items:
             state=self.app.automation.states.get(task['id'],'已启用' if task.get('enabled') else '已停用') if self.advanced else '可用'
             values=(task.get('name',''),self.app.describe_action(task),self.app.describe_when(task),local_text(self,state))
             iid=str(task['id'])
-            if self.tv.exists(iid):self.tv.item(iid,values=values)
+            if self.tv.exists(iid):
+                if tuple(self.tv.item(iid,'values'))!=tuple(str(v) for v in values):self.tv.item(iid,values=values)
             else:self.tv.insert('','end',iid=iid,values=values)
         if selected and self.tv.exists(selected[0]):self.tv.selection_set(selected)
         self._layout_columns()
@@ -298,6 +311,15 @@ class TaskView:
         if task:self.app.automation.skip_today(task['id']);self.refresh_status()
     def undo_delete(self):
         self.app.undo.undo();self.refresh_status()
+    def favorite(self):
+        task=self.selected()
+        if task is None or self.advanced:return
+        previous=task.get('favorite',False)
+        task['favorite']=not previous
+        try:self.commit()
+        except OSError:
+            task['favorite']=previous
+            raise
     def toggle(self):
         task=self.selected()
         if not task:return
