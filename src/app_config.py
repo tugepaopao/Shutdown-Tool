@@ -168,6 +168,7 @@ class Config(object):
                 recovered, notice = recover_corrupt(path)
                 if recovered is not None:self.data.update(recovered);source=recovered
                 self.recovery_notice = notice
+        self.data['language']='CHS'
         if self.data.get('skin')=='custom':self.data['skin']='solid'
         self.data['skin']='violet'
         self.data['accent']='purple'
@@ -212,6 +213,7 @@ class Config(object):
         return self.data.get(k, DEFAULT_SETTINGS.get(k))
 
     def __setitem__(self, k, v):
+        if k=='language':v='CHS'
         if k=='theme_mode':v='light'
         if k=='font_size':v='normal'
         self.data[k] = v
@@ -221,6 +223,7 @@ class Config(object):
 
     def update(self, mapping):
         self.data.update(mapping)
+        self.data['language']='CHS'
         if self.data.get('skin')=='custom':self.data['skin']='solid'
         self.data['skin']='violet'
         self.data['accent']='purple'

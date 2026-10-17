@@ -10,8 +10,8 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "2.0.4"
-BUILD_DATE = "2026-10-15"
+VERSION = "2.0.7"
+BUILD_DATE = "2026-10-17"
 
 FEATURE_EN = {
     '任务管理':'Task management','设置与任务模板备份':'Settings and task backups',
@@ -49,8 +49,7 @@ FEATURE_EN = {
 }
 
 def feature_text(T, text):
-    from translations160 import feature
-    return feature(T,text)
+    return text
 
 # 语言文件清单（对应“显示界面设置 -> 选择语言”表格）
 LANGUAGE_FILES = [
@@ -991,7 +990,7 @@ class Texts(object):
         self.set_language(lang)
 
     def set_language(self, lang):
-        self.lang = lang if lang in _TEXTS else "CHS"
+        self.lang = "CHS"
         self._d = _TEXTS[self.lang]
 
     def __call__(self, key, **kw):

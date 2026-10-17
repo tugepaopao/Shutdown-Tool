@@ -232,7 +232,7 @@ def button_grid(parent,items,columns=None):
     return buttons
 
 
-def compact_show(window, app, height=520):
+def compact_show(window, app, height=520, width=None):
     """Opt-in auxiliary window bounds, matching settings without changing main UI."""
     from ui_cozy import scale
     from ui_floating import workareas, clamp_position
@@ -240,7 +240,7 @@ def compact_show(window, app, height=520):
     s=scale(window);areas=workareas(window)
     cx,cy=app.root.winfo_rootx(),app.root.winfo_rooty()
     area=next((a for a in areas if a[0]<=cx<a[2] and a[1]<=cy<a[3]),areas[0])
-    width=640 if app.T.lang=='EN' else 560
+    width=width or (640 if app.T.lang=='EN' else 560)
     size=(min(round(width*s),area[2]-area[0]-20),min(round(height*s),area[3]-area[1]-20))
     window._compact_size=size
     x,y=clamp_position(cx+25,cy+25,*size,areas)

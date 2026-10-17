@@ -174,6 +174,18 @@ class CozyButton(tk.Button):
         from ui_skin import background,tint
         skin=background(self)
         im=skin if skin is not None else plate(w,h,bg,border,theme.c('shadow'),max(9,int(12*scale(self))),raised=False,base=parent_bg)
+        if getattr(self,'_dashed_outline',False):
+            q=4;im=Image.new('RGB',(w*q,h*q),parent_bg);d=ImageDraw.Draw(im)
+            r=round(9*scale(self)*q);box=(q,q,w*q-q-1,h*q-q-1)
+            d.rounded_rectangle(box,radius=r,fill=bg)
+            x0,y0,x1,y1=box;step=max(8,round(7*scale(self)*q));dash=step//2
+            for x in range(x0+r,x1-r,step):
+                for y in (y0,y1):d.line((x,y,min(x+dash,x1-r),y),fill=border,width=q)
+            for y in range(y0+r,y1-r,step):
+                for x in (x0,x1):d.line((x,y,x,min(y+dash,y1-r)),fill=border,width=q)
+            for arc,start in [((x0,y0,x0+2*r,y0+2*r),180),((x1-2*r,y0,x1,y0+2*r),270),((x1-2*r,y1-2*r,x1,y1),0),((x0,y1-2*r,x0+2*r,y1),90)]:
+                for angle in range(start,start+90,30):d.arc(arc,angle,angle+15,fill=border,width=q)
+            im=im.resize((w,h),Image.Resampling.LANCZOS)
         if getattr(self,'_bare_glyph',False):im=skin if skin is not None else Image.new('RGB',(w,h),parent_bg)
         if skin is not None and not getattr(self,'_row_action',False) and not getattr(self,'_bare_glyph',False):
             im=skin
@@ -337,6 +349,8 @@ def cozy_icon(widget,name,size,ink=None):
         ellipse((8,8,16,16))
         for a in range(0,360,45):
             r=math.radians(a);line([(12+8*math.cos(r),12+8*math.sin(r)),(12+10*math.cos(r),12+10*math.sin(r))],color,5)
+    elif name=='exclude':
+        ellipse((2,2,22,22));line([(5,5),(19,19)])
     elif name=='calendar':
         rect((3,5,21,22));line([(3,10),(21,10)],color,5);line([(7,2),(7,7)]);line([(17,2),(17,7)]);line([(8,15),(9,15)],color,5);line([(14,17),(16,14)],color,5)
     elif name=='sunrise':

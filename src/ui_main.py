@@ -1807,8 +1807,8 @@ class App(object):
 
     def describe_when(self, task):
         if task.get("mode") == "calendar":
-            from ui_tasks import REPEAT_NAMES
-            return task.get("at", "").replace("T", " ") + " · " + i18n.feature_text(self.T,REPEAT_NAMES.get(task.get("repeat", "once"), ""))
+            from automation_status import repeat_label
+            return task.get("at", "").replace("T", " ") + " · " + repeat_label(task,self.T)
         if task.get('mode')=='combined':return i18n.feature_text(self.T,'网络安静且无人操作')+f" · {task['user_idle_seconds']/60:g} min"
         if task.get('mode')=='chain':return i18n.feature_text(self.T,'程序成功后执行')+' · '+os.path.basename(task.get('prepare_path',''))
         if task.get("mode") in ("download", "network"):

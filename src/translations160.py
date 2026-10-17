@@ -1,5 +1,7 @@
 """v1.6界面文案；原控件本地化使用同一份映射。"""
 EN={
+ '今日跳过':'Skipped today','等待条件':'Waiting','确认中':'Confirming','等待空闲':'Awaiting idle','前置运行':'Preparing','已过期':'Expired','已错过':'Missed','已入队':'Queued','已超时':'Timed out','监控失败':'Monitor failed','入队失败':'Queue failed','保存失败':'Save failed','需重启用':'Re-enable',
+ '已过期，未补执行':'Expired; not executed','已错过，未执行':'Missed; not executed','已加入队列':'Added to queue','加入队列失败，未执行':'Could not add to queue; not executed','预约保存失败，未执行':'Schedule could not be saved; not executed','监控结果保存失败，未执行':'Monitoring result could not be saved; not executed','重开后需重新启用任务链':'Re-enable the task chain after restarting',
  '自动保留最近10份正常配置\n计时状态变化不会反复生成备份':'Keep the last 10 good configurations\nTimer updates do not create extra backups',
  '备份范围':'Backup contents',
  '包含：常用设置、命名模板、高级任务定义':'Included: settings, named templates and advanced task definitions',
@@ -73,6 +75,8 @@ def feature(T,text):
     from i18n import FEATURE_EN
     if text in EN:return EN[text]
     if text in FEATURE_EN:return FEATURE_EN[text]
+    if text.startswith('预约已错过：'):return 'Missed schedule: '+text.split('：',1)[1]
+    if text.startswith('高级任务未能加入队列：'):return 'Could not queue advanced task: '+text.split('：',1)[1]
     if text.startswith('快捷键已被其他程序占用：'):return 'Shortcut is already in use: '+text.split('：',1)[1]
     if text.startswith('延后') and text.endswith('分钟'):return 'Postpone '+text[2:-2]+' min'
     if text.endswith('天后') and text[:-2].isdigit():return 'In '+text[:-2]+' days'
@@ -134,3 +138,21 @@ EN.update({'我的模板':'My templates','下次执行':'Next run','新建任务
     '暂无模板，可保存主页面当前设定':'No templates yet. Save your current setup.',
     '收藏状态必须是布尔值':'Favorite must be true or false'})
 EN.update({'{n} 分钟':'{n} min','{n} 秒':'{n} sec','倒计时 {t}':'In {t}','每 {t} 循环':'Every {t}'})
+CHARS.update(str.maketrans({'诊':'診','异':'異','补':'補','结':'結','询':'詢','择':'擇'}))
+EN.update({
+ '搜索名称':'Search name','等待中':'Waiting','需处理':'Attention','收藏':'Favorites','没有匹配的任务':'No matching tasks',
+ '重新启用':'Re-enable','打开日志':'Open log','每周':'Weekly','自定义':'Custom','待确认':'Needs confirmation','待补执行':'Pending recovery',
+ '错过待确认':'Missed; awaiting confirmation','等待补执行':'Waiting to recover one missed run','已结束':'Ended','已到结束日期':'The end date has been reached',
+ '编辑高级任务':'Edit advanced task','保存后需手动启用':'Enable after saving','保存任务':'Save task','执行时间':'Time',
+ '例外日期':'Exception dates','＋ 添加日期':'+ Add date','这些日期将跳过执行':'These dates will be skipped','错过执行处理':'Missed runs',
+ '跳过，不补执行':'Skip missed runs','下次启动后询问':'Ask after reopening','启动后执行一次':'Run once after reopening','补执行仍保留10秒取消时间':'Recovered runs still allow 10 seconds to cancel',
+ '请输入 YYYY-MM-DD 日期，最多366个':'Enter YYYY-MM-DD dates, up to 366','请至少选择一个星期':'Select at least one weekday',
+ '例外日期最多366个':'Up to 366 exception dates are allowed','日期格式应为 YYYY-MM-DD':'Use YYYY-MM-DD for dates',
+ '结束日期不能早于开始日期':'End date must not be before start date','错过处理方式无效':'Invalid missed-run policy',
+ '错过的预约':'Missed schedule','任务“{name}”错过了 {at}。是否补执行一次？加入队列后保留10秒取消时间。':'“{name}” missed {at}. Run it once now? You will have 10 seconds to cancel after it enters the queue.',
+ '运行状态':'Runtime status','任务调度':'Task scheduler','正常':'Healthy','未运行':'Not running','运行中':'Running','已开启':'On','已关闭':'Off',
+ '刷新状态':'Refresh status','最近异常':'Recent issues','最近7天，仅打开页面或手动刷新时更新':'Last 7 days. Updated on opening this page or manual refresh.',
+ '诊断与恢复':'Diagnostics & recovery','复制诊断':'Copy diagnostics','导出备份':'Export backup','导入备份':'Import backup',
+ '最近7天暂无异常记录':'No recorded issues in the last 7 days','更多记录可在执行日志中查看':'See the execution log for more records',
+ '日志记录已关闭，仅显示已有记录':'Logging is off; showing existing records only',
+})

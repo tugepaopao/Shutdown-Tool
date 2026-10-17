@@ -95,6 +95,11 @@ try:
     ac.select(str(a.automation.jobs[0]['id']));pump();capture(center).save(out/'advanced.png')
     invoke_menu(ac,4)
     check('skip today menu persists exception date',advanced.selected()['skip_date']==dt.date.today().isoformat())
+    check('skip status is shown in row',ac.rows[str(advanced.selected()['id'])]['badge'].text=='今日跳过')
+    ac.view.owner.focus_force();ac.buttons[2].invoke();pump()
+    check('already skipped and enabled edit are disabled',ac.popup.buttons[4].cget('state')=='disabled' and ac.popup.buttons[1].cget('state')=='disabled')
+    ac.popup.dismiss();selected=advanced.selected();old_repeat=selected['repeat'];selected['repeat']='once';selected.pop('skip_date',None)
+    ac.buttons[2].invoke();pump();check('single occurrence cannot skip today',ac.popup.buttons[4].cget('state')=='disabled');ac.popup.dismiss();selected['repeat']=old_repeat
     invoke_menu(ac,5)
     from ui_extras import PreviewWindow
     previews=[w for w in center.winfo_children() if isinstance(w,PreviewWindow)]
@@ -105,6 +110,12 @@ try:
     widths=cards.column_widths
     check('long name elides without expanding columns',cards.rows[str(long['id'])]['name'].cget('text').endswith('…') and sum(widths)==cards.canvas.winfo_width())
     check('long name retains full data',view.selected()['name']==long['name'])
+    from automation_status import status
+    sample=dict(id='status',mode='calendar',repeat='once',at='2000-01-01T12:00:00',enabled=False)
+    for raw,label in (('', '已过期'),('已停用','已停用'),('已错过，未执行','已错过'),('已加入队列','已入队'),('监控结果保存失败，未执行','保存失败'),('加入队列失败，未执行','入队失败')):
+        check('scheduler state '+label,status(sample,{'status':raw})[0]==label)
+    sample.update(mode='network',enabled=True)
+    check('conditional task shows waiting',status(sample,{'status':'等待活动'})[0]=='等待条件')
     saved=copy.deepcopy(view.items())
     many=[]
     for i in range(200):

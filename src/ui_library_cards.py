@@ -10,6 +10,7 @@ from ui_dialog_palette import COLORS as C
 from ui_runtime_context import blossom
 from ui_queue_cards import CircleButton
 from i18n import feature_text
+from automation_status import status as automation_status,group as status_group,repeat_label
 
 
 class StatusBadge(tk.Canvas):
@@ -27,7 +28,9 @@ class StatusBadge(tk.Canvas):
         draw.rounded_rectangle((0,0,w*4-1,h*4-1),radius=h*2,fill=self.fill)
         self._photo=ImageTk.PhotoImage(im.resize((w,h),Image.Resampling.LANCZOS),master=self)
         self.create_image(0,0,image=self._photo,anchor='nw')
-        self.create_text(w/2,h/2,text=self.text,fill=self.ink,font=theme.font(delta=-2))
+        font=tkfont.Font(root=self,font=theme.font(delta=-2));text=self.text
+        while text and font.measure(text)>w-8:text=text[:-2]+'…' if len(text)>1 else ''
+        self.create_text(w/2,h/2,text=text,fill=self.ink,font=font)
 
 
 class FavoriteButton(CircleButton):
@@ -58,6 +61,21 @@ class LibraryCards:
         # Keep the existing task selection API without displaying a second table.
         self.tv=view.tv=ttk.Treeview(view,columns=('name','action','when','state'),show='headings',selectmode='browse')
         self.tv.bind('<<TreeviewSelect>>',lambda e:self.selection_changed())
+        self.query=tk.StringVar(view);self.filter_key='all';self.filter_buttons={}
+        self.card=CozyFrame(view,bg=C['card'])
+        self.filters=tk.Frame(view if self.advanced else self.card,bg=C['bg'] if self.advanced else C['card'])
+        if self.advanced:self.filters.pack(fill='x',padx=5,pady=(3,5))
+        from ui_soft_controls import SoftInput
+        self.search=SoftInput(self.filters,self.query,placeholder='搜索名称',width=160,height=30)
+        from ui_settings_controls import Tooltip
+        Tooltip(self.search,self.tr('搜索名称'))
+        self.search.grid(row=0,column=0,sticky='ew',padx=(0,6));self.filters.columnconfigure(0,weight=2)
+        keys=(('all','全部'),('waiting','等待中'),('attention','需处理'),('disabled','已停用')) if self.advanced else (('all','全部'),('favorites','收藏'))
+        for i,(key,title) in enumerate(keys,1):
+            self.filters.columnconfigure(i,weight=1,uniform='filters')
+            b=flat_button(self.filters,self.tr(title),lambda k=key:self.set_filter(k),font=theme.font(delta=-2),padx=3,pady=5)
+            b.grid(row=0,column=i,sticky='ew',padx=2);self.filter_buttons[key]=(b,title)
+        self.query.trace_add('write',lambda *a:self.refresh())
         self.summary=CozyFrame(view,bg=C['card']);self.summary.pack(fill='x',padx=4,pady=(3,8))
         inner=tk.Frame(self.summary,bg=C['card']);inner.pack(fill='x',padx=12,pady=10)
         self.flower=tk.Label(inner,bg=C['card'])
@@ -78,7 +96,7 @@ class LibraryCards:
         self.subtitle=self.label(texts,'',small=True);self.subtitle.pack(fill='x')
         self.title.bind('<Configure>',lambda e:self.fit(self.title,getattr(self,'_title',''),e.width))
         self.subtitle.bind('<Configure>',lambda e:self.fit(self.subtitle,getattr(self,'_subtitle',''),e.width))
-        self.card=CozyFrame(view,bg=C['card']);self.card.pack(fill='both',expand=True,padx=4)
+        self.card.pack(fill='both',expand=True,padx=4)
         self.bottom=tk.Frame(view,bg=C['bg']);self.bottom.pack(side='bottom',before=self.card,fill='x',padx=4,pady=(8,4))
         actions=[('新建任务',view.add,'accent'),('启用／停用',view.toggle,'normal')] if self.advanced else [('加入队列',view.use,'accent'),('保存主页面当前设定',view.capture,'normal')]
         self.buttons=[]
@@ -97,11 +115,23 @@ class LibraryCards:
         if self.advanced:
             self.next_label=self.label(self.details,'',small=True);self.next_label.pack(fill='x',padx=10,pady=(8,4))
             self.repeat_label=self.label(self.details,'',small=True);self.repeat_label.pack(fill='x',padx=10,pady=(0,8))
-            for label in (self.next_label,self.repeat_label):
+            self.state_label=self.label(self.details,'',small=True);self.state_label.pack(fill='x',padx=10,pady=(0,8))
+            for label in (self.next_label,self.repeat_label,self.state_label):
                 label.config(bg=C['input']);label.bind('<Configure>',lambda e,w=label:self.fit(w,getattr(w,'_full_text',''),e.width))
+            self.state_label.config(wraplength=430,justify='left')
+            self.state_label.bind('<Configure>',lambda e:self.state_label.config(wraplength=max(20,e.width-4)))
+            self.recovery=tk.Frame(self.details,bg=C['input']);self.recovery_buttons=[]
+            for text,fn in [('重新启用',view.toggle),('编辑任务',view.edit),('打开日志',self.app.open_log)]:
+                b=flat_button(self.recovery,self.tr(text),lambda fn=fn:view.safe(fn),font=theme.font(delta=-2),padx=6,pady=3);b.pack(side='left',padx=(0,6));self.recovery_buttons.append(b)
         else:
             self.selection_label=self.label(self.details,'',small=True);self.selection_label.pack(side='left')
         wrap=tk.Frame(self.card,bg=C['card']);wrap.pack(fill='both',expand=True,padx=10,pady=(10,0))
+        if not self.advanced:
+            self.filters.pack_forget();self.filters.pack(in_=self.card,before=wrap,fill='x',padx=12,pady=(8,0))
+            for col in range(3):self.filters.columnconfigure(col,weight=0,uniform='')
+            for col,key in enumerate(('all','favorites')):
+                b=self.filter_buttons[key][0];b.grid(row=0,column=col,sticky='w',padx=(0,6));b.config(padx=12)
+            self.filters.columnconfigure(2,weight=1);self.search.grid(row=0,column=2,sticky='e',padx=(8,0))
         wrap.columnconfigure(0,weight=1);wrap.rowconfigure(1,weight=1)
         self.header=tk.Frame(wrap,bg=C['card'],height=round(26*self.s));self.header.grid(row=0,column=0,sticky='ew');self.header.pack_propagate(False)
         self.headings=[self.label(self.header,t,small=True) for t in ('名称','操作','执行方式','状态')]
@@ -120,6 +150,14 @@ class LibraryCards:
         self.empty=self.label(self.body,'暂无高级任务，点击“新建任务”开始' if self.advanced else '暂无模板，可保存主页面当前设定',small=True)
 
     def tr(self,text):return feature_text(self.app.T,text)
+
+    def set_filter(self,key):
+        self.filter_key=key;self.refresh();self.canvas.yview_moveto(0)
+
+    def visible_items(self,items):
+        query=self.query.get().strip().casefold()
+        return [t for t in items if (not query or query in t.get('name','').casefold()) and
+                (self.filter_key=='all' or (status_group(t,self.app.automation.states)==self.filter_key if self.advanced else bool(t.get('favorite'))))]
 
     def wheel(self,event):
         widget=event.widget
@@ -142,6 +180,9 @@ class LibraryCards:
 
     def paint_badge(self,badge,text,enabled=None):
         bg,fg=('#C8E8D2','#285F40') if enabled is True else ('#E3DFEC',C['muted']) if enabled is False else (C['hover'],C['fg'])
+        if text in ('监控失败','入队失败','保存失败'):bg,fg='#F5D8DD','#9E354F'
+        elif text in ('待确认','待补执行','已错过','已超时','需重启用'):bg,fg='#F4E4C5','#8A601D'
+        elif text in ('传输中','确认中','前置运行'):bg,fg=C['hover'],theme.accent
         badge.text=self.tr(text);badge.fill=bg;badge.ink=fg;badge.redraw()
 
     def fit(self,label,text,width):
@@ -163,9 +204,9 @@ class LibraryCards:
             else:value=self.tr('{n} 秒').format(n=seconds)
             return self.tr('倒计时 {t}' if task['mode']=='countdown' else '每 {t} 循环').format(t=value)
         if task.get('mode')!='calendar':return self.app.describe_when(task)
-        repeat={'once':'仅一次','daily':'每天','workdays':'每周一至周五','weekends':'每周六、周日'}.get(task.get('repeat','once'),'仅一次')
+        repeat=repeat_label(task,self.app.T)
         at=dt.datetime.fromisoformat(task['at'])
-        return (at.strftime('%Y-%m-%d %H:%M') if task.get('repeat','once')=='once' else self.tr(repeat)+' '+at.strftime('%H:%M'))
+        return (at.strftime('%Y-%m-%d %H:%M') if task.get('repeat','once')=='once' else repeat+' '+at.strftime('%H:%M'))
 
     def next_text(self,task):
         if not task:return self.tr('暂无已启用任务')
@@ -199,8 +240,15 @@ class LibraryCards:
         return 'break'
 
     def refresh(self):
-        items=self.view.items();signature=(repr(items),repr(self.app.automation.states) if self.advanced else '',self.app.T.lang)
+        all_items=self.view.items();items=self.visible_items(all_items)
+        signature=(repr(all_items),repr(self.app.automation.states) if self.advanced else '',self.app.T.lang,self.filter_key,self.query.get())
         if signature!=self.signature:
+            if not self.advanced:
+                self.search.grid() if len(all_items)>=8 or self.query.get() else self.search.grid_remove()
+            for key,(b,title) in self.filter_buttons.items():
+                n=len(all_items) if key=='all' else sum(status_group(t,self.app.automation.states)==key if self.advanced else bool(t.get('favorite')) for t in all_items)
+                b._bg=C['selected'] if key==self.filter_key else C['bg'];b._hover=C['hover']
+                b.config(text=self.tr(title)+' '+str(n),bg=b._bg,fg=theme.accent if key==self.filter_key else C['muted'])
             self.signature=signature;selected=self.tv.selection();position=self.canvas.yview()[0]
             self._painting=True
             old_order=list(self.rows);new_order=[str(t['id']) for t in items]
@@ -209,7 +257,7 @@ class LibraryCards:
             self.empty.pack_forget()
             for task in items:
                 iid=str(task['id']);schedule=self.schedule(task)
-                state=('已启用' if task.get('enabled') else '已停用') if self.advanced else ('常用' if task.get('favorite') else '普通')
+                state=automation_status(task,self.app.automation.states)[0] if self.advanced else ('常用' if task.get('favorite') else '普通')
                 values=(task['name'],self.app.describe_action(task),schedule,self.tr(state))
                 enabled=bool(task.get('enabled')) if self.advanced else None if task.get('favorite') else False
                 if iid in self.rows:
@@ -219,6 +267,7 @@ class LibraryCards:
                         row['action']=task['action'];icon=row['icon']
                         icon._photo=cozy_icon(icon,'bell' if task['action']=='message' else task['action'],round(22*self.s),ink=theme.accent);icon.config(image=icon._photo)
                     self.paint_badge(row['badge'],state,enabled)
+                    enable_button(row['edit'],not self.advanced or not task.get('enabled'))
                     continue
                 self.tv.insert('','end',iid=iid,values=values)
                 row=CozyFrame(self.body,bg=C['card'],height=round(49*self.s),radius=10);row.pack(fill='x',pady=2);row.pack_propagate(False)
@@ -226,6 +275,7 @@ class LibraryCards:
                 icon._photo=cozy_icon(row,'bell' if task['action']=='message' else task['action'],round(22*self.s),ink=theme.accent);icon.config(image=icon._photo)
                 edit=flat_button(row,self.tr('编辑'),lambda iid=iid:self.edit_row(iid),font=theme.font(delta=-2),padx=2,pady=3)
                 edit._selection_outline='#D8CDEF'
+                enable_button(edit,not self.advanced or not task.get('enabled'))
                 condition=self.label(row,schedule,small=True);badge=self.badge(row,state)
                 self.paint_badge(badge,state,enabled)
                 self.rows[iid]=dict(frame=row,name=name,icon=icon,edit=edit,condition=condition,badge=badge,task=task,action=task['action'])
@@ -235,17 +285,20 @@ class LibraryCards:
                 from ui_settings_controls import Tooltip
                 Tooltip(name,lambda iid=iid:self.rows[iid]['task']['name']+'\n'+self.app.describe_action(self.rows[iid]['task']))
                 Tooltip(condition,lambda iid=iid:self.schedule(self.rows[iid]['task']))
+                Tooltip(badge,lambda iid=iid:self.tr(automation_status(self.rows[iid]['task'],self.app.automation.states)[1]) if self.advanced else self.tr('常用' if self.rows[iid]['task'].get('favorite') else '普通'))
             self.rows={iid:self.rows[iid] for iid in new_order}
             if old_order!=new_order:
                 for index,(iid,row) in enumerate(self.rows.items()):
                     row['frame'].pack_forget();row['frame'].pack(fill='x',pady=2);self.tv.move(iid,'',index)
-            if not items:self.empty.pack(fill='x',padx=12,pady=32)
+            if not items:
+                self.empty.config(text=self.tr('没有匹配的任务' if all_items else '暂无高级任务，点击“新建任务”开始' if self.advanced else '暂无模板，可保存主页面当前设定'))
+                self.empty.pack(fill='x',padx=12,pady=32)
             if selected and selected[0] in self.rows:self.tv.selection_set(selected[0])
             elif items:self.tv.selection_set(str(items[0]['id']))
             self._painting=False;self.layout();self.canvas.update_idletasks();self.canvas.yview_moveto(position)
             key='advanced' if self.advanced else 'templates'
             if hasattr(self.view.owner,'tab_buttons'):
-                self.view.owner.tab_buttons[key].config(text=self.app.T('center_'+key)+'  '+str(len(items)))
+                self.view.owner.tab_buttons[key].config(text=self.app.T('center_'+key)+'  '+str(len(all_items)))
         self.selection_changed()
 
     def layout(self,width=None):
@@ -286,9 +339,19 @@ class LibraryCards:
         self._subtitle=(self.next_text(task)+' · '+self.repeat(task) if self.advanced else self.app.describe_action(task)+' · '+self.schedule(task)) if task else self.tr('新建任务后手动启用' if self.advanced else '保存常用设定，一键加入队列')
         self.fit(self.title,self._title,self.title.winfo_width());self.fit(self.subtitle,self._subtitle,self.subtitle.winfo_width())
         if self.advanced:
-            self.paint_badge(self.summary_status,'已启用' if task else '已停用',bool(task))
+            self.paint_badge(self.summary_status,automation_status(task,self.app.automation.states)[0],bool(task))
             for label,text in ((self.next_label,self.tr('下次执行')+'：  '+self.next_text(selected)),(self.repeat_label,self.tr('重复')+'：  '+self.repeat(selected))):
                 label._full_text=text;self.fit(label,text,label.winfo_width())
+            self.state_label._full_text=self.tr('状态')+'：  '+self.tr(automation_status(selected,self.app.automation.states)[1])
+            if selected and selected.get('last_error'):self.state_label._full_text+=' · '+str(selected['last_error'])[:240]
+            if selected:self.state_label._full_text=selected['name']+'\n'+self.state_label._full_text
+            self.state_label.config(text=self.state_label._full_text)
+            attention=selected and status_group(selected,self.app.automation.states)=='attention'
+            if attention:
+                if not self.recovery.winfo_manager():self.recovery.pack(fill='x',padx=10,pady=(0,8))
+                enable_button(self.recovery_buttons[0],not selected.get('enabled') and not selected.get('pending_missed'))
+                enable_button(self.recovery_buttons[1],not selected.get('enabled'))
+            else:self.recovery.pack_forget()
             enable_button(self.buttons[1],selected is not None)
         else:
             self.favorite_button.config(text='★' if selected and selected.get('favorite') else '☆')
@@ -298,15 +361,15 @@ class LibraryCards:
     def repeat(self,task):
         if not task:return '—'
         if task.get('mode')!='calendar':return self.tr('条件任务（单次）')
-        return self.tr({'once':'仅一次','daily':'每天','workdays':'每周一至周五','weekends':'每周六、周日'}[task.get('repeat','once')])
+        return repeat_label(task,self.app.T)
 
     def menu(self,anchor):
         from ui_popup_menu import VioletMenu
         from ui_extras import PreviewWindow
         selected=self.view.selected();has=selected is not None
-        items=[('新建任务',self.view.add,True,'enqueue'),('编辑',self.view.edit,has,'parameters'),('复制',self.view.duplicate,has,'copy'),('删除',self.view.remove,has,'clear')]
+        items=[('新建任务',self.view.add,True,'enqueue'),('编辑',self.view.edit,has and (not self.advanced or not selected.get('enabled')),'parameters'),('复制',self.view.duplicate,has,'copy'),('删除',self.view.remove,has,'clear')]
         if self.advanced:
-            items += [('今天跳过一次',self.view.skip_today,has and selected.get('mode')=='calendar' and selected.get('enabled',False),'clock'),('未来7天任务预览',lambda:PreviewWindow(self.app,self.view.owner),True,'calendar')]
+            items += [('今天跳过一次',self.view.skip_today,has and selected.get('mode')=='calendar' and selected.get('repeat','once')!='once' and selected.get('enabled',False) and selected.get('skip_date')!=dt.date.today().isoformat(),'clock'),('未来7天任务预览',lambda:PreviewWindow(self.app,self.view.owner),True,'calendar')]
         else:items += [('撤销上一次删除',self.view.undo_delete,self.app.undo.available(),'restart')]
         menu=tk.Menu(self.view,tearoff=0)
         for text,fn,enabled,icon in items:menu.add_command(label=self.tr(text),command=lambda fn=fn:self.view.safe(fn),state='normal' if enabled else 'disabled')

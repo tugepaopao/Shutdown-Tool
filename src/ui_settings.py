@@ -11,8 +11,8 @@ from ui_pc_controls import ControlPanel,PercentSlider
 from i18n import Texts,feature_text,LANGUAGE_FILES,AUTHOR
 import autostart,quick_presets
 
-PAGES=(('general','通用与启动','gear'),('notifications','提醒与通知','bell'),('floating','界面与悬浮','monitor'),('tasks','任务与预设','document'),('hotkeys','全局快捷键','keyboard'),('pc','电脑快控','monitor'),('language','语言','document'),('backup','备份与诊断','database'))
-NAV_LABELS={'CHS':('通用','提醒','界面','任务','快捷键','快控','语言','备份'),'CHT':('通用','提醒','介面','任務','快捷鍵','快控','語言','備份'),'EN':('General','Alerts','Display','Tasks','Hotkeys','Controls','Language','Backup')}
+PAGES=(('general','通用与启动','gear'),('notifications','提醒与通知','bell'),('floating','界面与悬浮','monitor'),('tasks','任务与预设','document'),('hotkeys','全局快捷键','keyboard'),('pc','电脑快控','monitor'),('backup','备份与诊断','database'))
+NAV_LABELS={'CHS':('通用','提醒','界面','任务','快捷键','快控','备份')}
 BOOLS=('confirm_before_action','confirm_key_only','confirm_on_exit','confirm_on_exit_only_timer','force_close_apps','esc_to_minimize','minimize_to_tray','autostart','sound_at_10s','popup_at_10s','cancel_at_10s','log_enabled','resume_timer','hotkeys_enabled','notify_setup','notify_done','notify_error','float_enabled','float_topmost')
 
 class SettingsNav(CozyFrame):
@@ -164,6 +164,7 @@ class SettingsWindow(tk.Toplevel):
         if hasattr(self,'save_state'):self._paint_save_state()
         if key=='pc':self.pc_panel.refresh()
         if key=='tasks':self._task_counts()
+        if key=='backup':self.diagnostics_panel.refresh()
     def _compact_control_fonts(self, subtree=None):
         from ui_localize import walk
         for widget in walk(subtree if subtree is not None else self):
@@ -224,21 +225,6 @@ class SettingsWindow(tk.Toplevel):
         self._row(g,'重开后的定时恢复',lambda r:self._enum(r,'resume_strategy',[('ask','询问恢复'),('paused','恢复为暂停'),('continue','直接继续'),('off','不恢复')]))
         g=self._card(pad,'操作确认')
         for key,name,dep in [('confirm_before_action',self.T('set_confirm_before'),None),('confirm_key_only',self.T('set_confirm_key'),'confirm_before_action'),('confirm_on_exit',self.T('set_confirm_on_exit'),None),('confirm_on_exit_only_timer',self.T('set_confirm_exit_timer'),'confirm_on_exit'),('force_close_apps',self.T('set_force_close'),None)]:self._check(g,key,name,dep=dep)
-    def _build_language(self):
-        pad=self._page('language','语言');g=self._card(pad,'显示语言')
-        self._lab(g,'选择界面语言，保存后应用。',fg=C['muted'],font=self.font(delta=-1),wraplength=400).pack(fill='x',pady=(0,8))
-        for code,name,native in [('CHS','简体中文','简体中文'),('CHT','繁體中文','繁體中文'),('EN','English','English')]:
-            row=tk.Frame(g,bg=C['card']);row.pack(fill='x',pady=4)
-            b=flat_button(row,native,lambda c=code:self.v['language'].set(c),padx=14,pady=10);b.config(anchor='w');b.pack(fill='x')
-            def paint(*a,c=code,w=b):
-                selected=self.v['language'].get()==c;w._selection_outline=theme.accent if selected else '#E4DEF5';w._bg=C['hover'] if selected else C['input'];w._last_paint=None;w._theme_photo=cozy_icon(self,'check',round(19*self.s));w.config(bg=w._bg,text='  '+{'CHS':'简体中文','CHT':'繁體中文','EN':'English'}[c],image=w._theme_photo if selected else '',compound='left')
-            trace=self.v['language'].trace_add('write',paint);paint()
-            b.bind('<Destroy>',lambda e,v=self.v['language'],n=trace:v.trace_remove('write',n))
-        g=self._card(pad,'语言信息')
-        for item in LANGUAGE_FILES:
-            row=tk.Frame(g,bg=C['card']);row.pack(fill='x',pady=5)
-            self._lab(row,item['file'],font=self.font(delta=-1)).pack(side='left')
-            self._lab(row,AUTHOR,fg=C['muted'],font=self.font(delta=-1)).pack(side='right')
     def _build_hotkeys(self):
         from ui_hotkey_settings import HotkeyPanel
         pad=self._page('hotkeys','全局快捷键');self.hotkey_panel=HotkeyPanel(self,pad)
@@ -336,18 +322,8 @@ class SettingsWindow(tk.Toplevel):
         self.preset_items[index],self.preset_items[other]=self.preset_items[other],self.preset_items[index];self.v['quick_presets'].set(json.dumps(self.preset_items,sort_keys=True));self.select_preset(other,False)
     def reset_presets(self):self.preset_items=quick_presets.defaults();self.v['quick_presets'].set(json.dumps(self.preset_items,sort_keys=True));self.preset_error.config(text='');self.select_preset(0,False)
     def _build_backup(self):
-        from ui_tasks import backup_export
-        from ui_extras import RecoveryWindow
-        from ui_restore import choose_backup
-        pad=self._page('backup','备份与诊断');g=self._card(pad,'导入与导出')
-        from ui_window import button_grid
-        self._actions(g,[(self.tr('导出设置与模板'),lambda:backup_export(self.app,self),'normal'),(self.tr('导入设置与模板'),lambda:choose_backup(self.app,self),'normal')])
-        g=self._card(pad,'备份与恢复');self._lab(g,'自动保留最近10份正常配置',wraplength=490).pack(fill='x',pady=7)
-        flat_button(g,self.tr('查看自动备份'),lambda:RecoveryWindow(self.app,self),kind='accent',padx=16,pady=7).pack(fill='x',pady=4)
-        self._expander(g,'备份范围',['包含：常用设置、命名模板、高级任务定义','不包含：运行中的定时、队列、自启动项','配置损坏时自动尝试恢复；手动恢复前会显示预览。'])
-        g=self._card(pad,'执行日志与诊断');self._check(g,'log_enabled',self.T('set_log_enabled'))
-        self._actions(g,[(self.tr('执行日志'),self.app.open_log,'normal'),(self.tr('复制诊断概要'),self.copy_diagnostics,'normal')])
-        self._lab(g,'默认不包含消息内容和个人文件路径。',fg=C['muted'],font=self.font(delta=-1),wraplength=490).pack(fill='x',pady=(9,0))
+        from ui_diagnostics import DiagnosticsPanel
+        self.diagnostics_panel=DiagnosticsPanel(self,self._page('backup','备份与诊断'))
     def copy_diagnostics(self):
         import diagnostics
         self.clipboard_clear();self.clipboard_append(diagnostics.text(self.app));self.update_idletasks();messagebox.showinfo('诊断概要已复制','默认不包含消息内容和个人文件路径。',parent=self)

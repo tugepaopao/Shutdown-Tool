@@ -42,11 +42,27 @@ def normalize(task):
             result[key]=int(n)
     elif mode=='calendar':
         repeat=task.get('repeat','once')
-        if repeat not in ('once','workdays','weekends','daily'):raise ValueError('重复规则错误')
+        if repeat not in ('once','workdays','weekends','daily','weekly','custom'):raise ValueError('重复规则错误')
         try:at=dt.datetime.fromisoformat(str(task.get('at','')))
         except ValueError:raise ValueError('日期格式应为 YYYY-MM-DD HH:MM:SS')
         if at.tzinfo is not None:raise ValueError('请使用本机当地时间')
         result.update(at=at.isoformat(timespec='seconds'),repeat=repeat)
+        if repeat in ('weekly','custom'):
+            days=task.get('weekdays',[])
+            if not isinstance(days,list) or not days or any(type(d) is not int or not 0<=d<=6 for d in days):raise ValueError('请至少选择一个星期')
+            result['weekdays']=sorted(set(days))
+        dates=task.get('exception_dates',[])
+        if not isinstance(dates,list) or len(dates)>366:raise ValueError('例外日期最多366个')
+        try:result['exception_dates']=sorted({dt.date.fromisoformat(d).isoformat() for d in dates})
+        except (ValueError,TypeError):raise ValueError('日期格式应为 YYYY-MM-DD')
+        if task.get('end_date'):
+            try:end=dt.date.fromisoformat(task['end_date'])
+            except (ValueError,TypeError):raise ValueError('日期格式应为 YYYY-MM-DD')
+            if end<at.date():raise ValueError('结束日期不能早于开始日期')
+            result['end_date']=end.isoformat()
+        policy=task.get('missed_policy','skip')
+        if policy not in ('skip','ask','run'):raise ValueError('错过处理方式无效')
+        result['missed_policy']=policy
     elif mode=='chain':
         path=str(task.get('prepare_path','')).strip()
         args=task.get('prepare_args','')
@@ -76,16 +92,18 @@ def snapshot(task,cfg):
 
 def next_calendar(task,now=None):
     now=now or dt.datetime.now();start=dt.datetime.fromisoformat(task['at'])
-    if task.get('repeat','once')=='once':return start if start>now else None
-    days={'workdays':set(range(5)),'weekends':{5,6},'daily':set(range(7))}[task['repeat']]
-    candidate=start.replace(year=now.year,month=now.month,day=now.day)
-    for offset in range(8):
-        at=candidate+dt.timedelta(days=offset)
-        if at>now and at>=start and at.weekday() in days and at.date().isoformat()!=task.get('skip_date'):return at
-    # 开始日期可能还在未来。
-    for offset in range(8):
-        at=start+dt.timedelta(days=offset)
-        if at>now and at.weekday() in days and at.date().isoformat()!=task.get('skip_date'):return at
+    excluded=set(task.get('exception_dates',[]));excluded.add(task.get('skip_date',''))
+    end=dt.date.fromisoformat(task['end_date']) if task.get('end_date') else dt.date.max
+    if task.get('repeat','once')=='once':return start if start>now and start.date()<=end and start.date().isoformat() not in excluded else None
+    days={'workdays':set(range(5)),'weekends':{5,6},'daily':set(range(7))}.get(task['repeat'],set(task.get('weekdays',[])))
+    if not days:return None
+    candidate=dt.datetime.combine(max(now.date(),start.date()),start.time())
+    # At least one selected weekday per week; each exclusion can remove only one occurrence.
+    for offset in range(7*(len(excluded)+2)):
+        try:at=candidate+dt.timedelta(days=offset)
+        except OverflowError:return None
+        if at.date()>end:return None
+        if at>now and at>=start and at.weekday() in days and at.date().isoformat() not in excluded:return at
 
 def save_template(cfg,name,task):
     name=str(name).strip()
@@ -119,7 +137,9 @@ def export_backup(cfg,path):
     settings={k:copy.deepcopy(cfg.get(k)) for k in DEFAULT_SETTINGS if k not in ('queue','pending_timer','templates','automations','autostart')}
     data={'format':'haozai-backup','schema':1,'settings':settings,'templates':copy.deepcopy(cfg.get('templates') or []),
           'automations':copy.deepcopy(cfg.get('automations') or [])}
-    for job in data['automations']:job['enabled']=False;job.pop('next_at',None)
+    for job in data['automations']:
+        job['enabled']=False
+        for key in ('next_at','pending_missed','last_state','last_error','skip_date'):job.pop(key,None)
     tmp=str(path)+'.tmp'
     with open(tmp,'w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,indent=2)
     os.replace(tmp,path)
@@ -167,6 +187,7 @@ def read_backup(path):
     settings['keep_display_on']=False
     settings['quick_at_today']='22:00'
     settings['theme_mode']='light'
+    settings['language']='CHS'
     settings['font_size']='normal'
     import quick_presets
     settings['quick_presets']=quick_presets.validate(settings['quick_presets']) if settings.get('quick_presets') else quick_presets.defaults(settings)

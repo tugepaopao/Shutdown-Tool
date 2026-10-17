@@ -19,7 +19,7 @@ def local_text(parent,text):
 
 MODE_NAMES={'countdown':'倒计时','datetime':'定点执行（单次）','interval':'循环间隔',
             'calendar':'具体日期／重复预约','download':'下载文件夹结束后','network':'网络传输安静后','combined':'网络安静且无人操作','chain':'程序成功后执行'}
-REPEAT_NAMES={'once':'仅一次','workdays':'每周一至周五','weekends':'每周六、周日','daily':'每天'}
+REPEAT_NAMES={'once':'仅一次','workdays':'每周一至周五','weekends':'每周六、周日','daily':'每天','weekly':'每周','custom':'自定义'}
 ACTION_NAMES=('shutdown','restart','logoff','lock','sleep','hibernate','close_program','run_program','play_sound','message')
 
 def label(parent,text,**kw):
@@ -36,43 +36,8 @@ class TaskEditor(tk.Toplevel):
             try:task=app.current_task_snapshot()
             except ValueError:task={'action':app._current_action(),'mode':'countdown','seconds':60,**{k:app.cfg.get(k) for k in ('program_path','sound_file','message_text','force_close_apps')}}
         self.original=copy.deepcopy(task)
-        self.title(local_text(self,title));self.configure(bg=theme.c('bg'));self.transient(parent or app.root);self.resizable(False,False)
-        self.body=tk.Frame(self,bg=theme.c('bg'));self.body.pack(fill='both',expand=True,padx=14,pady=12)
-        self.v={};self.rows={};self.mode_keys=list(modes or MODE_NAMES)
-        self.add_field('name','任务／模板名称',self.original.get('name',''))
-        self.action=ttk.Combobox(self.body,state='readonly',values=[action_label(a,app.T) for a in ACTION_NAMES],width=30)
-        self.add_row('action','执行操作',self.action);self.action.current(ACTION_NAMES.index(('close_program' if self.original.get('action')=='monitor_off' else self.original.get('action','message'))))
-        self._parameter_action = self.original.get('action','message')
-        self.action.bind('<<ComboboxSelected>>', self.action_changed)
-        self.mode=ttk.Combobox(self.body,state='readonly',values=[local_text(self,MODE_NAMES[k]) for k in self.mode_keys],width=30)
-        self.add_row('mode','执行方式',self.mode)
-        current=self.original.get('mode','countdown');self.mode.current(self.mode_keys.index(current) if current in self.mode_keys else 0)
-        self.mode.bind('<<ComboboxSelected>>',lambda e:self.update_fields())
-        self.add_field('parameter','程序／声音路径或消息',self.original.get({'close_program':'close_program_path','run_program':'program_path','play_sound':'sound_file','message':'message_text'}.get(self.original.get('action'),'message_text'),app.cfg.get({'close_program':'close_program_path','run_program':'program_path','play_sound':'sound_file','message':'message_text'}.get(self.original.get('action'),'message_text'),'')))
-        self.browse=button(self.rows['parameter'],'选择文件',self.pick_file);self.browse.grid(row=0,column=2,padx=4)
-        self.add_field('seconds','时长（秒）',str(self.original.get('seconds',60)))
-        self.add_field('weekday','星期（1=周一，7=周日）',str(int(self.original.get('weekday',0))+1))
-        at=dt.datetime.fromisoformat(self.original.get('at',(dt.datetime.now()+dt.timedelta(days=1)).isoformat()))
-        self.add_field('date','日期 YYYY-MM-DD',at.strftime('%Y-%m-%d'))
-        clock='%02d:%02d:%02d'%(self.original.get('hour',at.hour),self.original.get('minute',at.minute),self.original.get('second',0))
-        self.add_field('clock','时刻 HH:MM:SS',clock)
-        self.repeat=ttk.Combobox(self.body,state='readonly',values=[local_text(self,t) for t in REPEAT_NAMES.values()],width=30)
-        self.add_row('repeat','重复规则',self.repeat);self.repeat.current(list(REPEAT_NAMES).index(self.original.get('repeat','once')))
-        self.add_field('folder','下载文件夹',self.original.get('folder',str(os.path.join(os.path.expanduser('~'),'Downloads'))))
-        button(self.rows['folder'],'浏览',self.pick_folder).grid(row=0,column=2,padx=4)
-        self.add_field('threshold_kib','安静阈值（KB/s，收发总和）',str(self.original.get('threshold_kib',10)))
-        self.add_field('idle_seconds','连续安静（秒）',str(self.original.get('idle_seconds',60)))
-        self.add_field('timeout_hours','最长等待（小时）',str(float(self.original.get('timeout_seconds',43200))/3600))
-        self.add_field('user_idle_minutes','无人操作（分钟）',str(float(self.original.get('user_idle_seconds',600))/60))
-        self.add_field('prepare_path','前置程序（exe）',self.original.get('prepare_path',''))
-        button(self.rows['prepare_path'],'浏览',self.pick_prepare).grid(row=0,column=2,padx=4)
-        self.add_field('prepare_args','前置程序参数',self.original.get('prepare_args',''))
-        self.force=tk.BooleanVar(value=bool(self.original.get('force_close_apps',False)))
-        tk.Checkbutton(self.body,text=local_text(self,'允许强制关闭应用（关机／重启／注销）'),wraplength=570,justify='left',variable=self.force,bg=theme.c('bg'),fg=theme.c('fg'),selectcolor=theme.c('bg'),font=theme.font(delta=-1)).pack(fill='x',pady=6)
-        label(self.body,'保存不会启动任务。启用高级任务后，条件满足会加入队列，保留10秒取消／延后。\n下载检测仅检查直接文件；网络安静不等于某个下载成功。',wraplength=520,justify='left',font=theme.font(delta=-1)).pack(fill='x',pady=6)
-        bar=tk.Frame(self.body,bg=theme.c('bg'));bar.pack(fill='x',pady=(8,0))
-        button_grid(bar,[(local_text(self,'取消'),self.destroy,'normal'),(local_text(self,'保存'),self.save,'accent')])
-        self.update_fields();app._apply_window_chrome(self);self.bind('<Escape>',lambda e:self.destroy());show(self);self.grab_set();self.focus_set()
+        from ui_advanced_editor import AdvancedLayout
+        self.advanced_layout=AdvancedLayout(self,modes,title,parent)
     def add_row(self,key,title,widget=None):
         row=tk.Frame(self.body,bg=theme.c('bg'));row.pack(fill='x',pady=4);self.rows[key]=row
         label(row,title,anchor='w',wraplength=225,justify='left',font=theme.font(delta=-1)).grid(row=0,column=0,sticky='ew',padx=(0,10))
@@ -98,6 +63,7 @@ class TaskEditor(tk.Toplevel):
         self.update_fields()
 
     def update_fields(self):
+        if hasattr(self,'advanced_layout'):return self.advanced_layout.update_fields()
         mode=self.mode_keys[self.mode.current()];action=ACTION_NAMES[self.action.current()]
         visible={'name','action','mode'}
         if action in ('close_program','run_program','play_sound','message'):visible.add('parameter')
@@ -118,13 +84,15 @@ class TaskEditor(tk.Toplevel):
     def pick_prepare(self):
         f=filedialog.askopenfilename(parent=self,filetypes=[('Executable','*.exe')])
         if f:self.v['prepare_path'].set(f)
-    def pick_file(self):
+    def pick_file(self,parent=None):
+        parent=parent or self
         if ACTION_NAMES[self.action.current()]=="close_program":
             from ui_close_program import CloseProgramDialog
-            dlg=CloseProgramDialog(self.app,parent=self,initial=self.v["parameter"].get());self.wait_window(dlg)
+            dlg=CloseProgramDialog(self.app,parent=parent,initial=self.v["parameter"].get());self.wait_window(dlg)
             f=dlg.result
-        else:f=filedialog.askopenfilename(parent=self)
+        else:f=filedialog.askopenfilename(parent=parent)
         if f:self.v['parameter'].set(f)
+        if parent.winfo_exists():parent.grab_set()
     def pick_folder(self):
         f=filedialog.askdirectory(parent=self)
         if f:self.v['folder'].set(f)
@@ -141,11 +109,15 @@ class TaskEditor(tk.Toplevel):
             validate_target(task["close_program_path"])
         if mode in ('countdown','interval'):task['seconds']=self.v['seconds'].get()
         if mode in ('datetime','calendar'):
-            try:h,m,s=[int(v) for v in self.v['clock'].get().split(':')];dt.time(h,m,s)
+            try:
+                parts=[int(v) for v in self.v['clock'].get().split(':')]
+                if len(parts)==2:parts.append(0)
+                h,m,s=parts;dt.time(h,m,s)
             except (ValueError,TypeError):raise ValueError('时刻应为 HH:MM:SS，例如 22:00:00')
             if mode=='datetime':task.update(weekday=int(self.v['weekday'].get())-1,hour=h,minute=m,second=s)
             else:
                 task.update(at=self.v['date'].get()+f'T{h:02}:{m:02}:{s:02}',repeat=list(REPEAT_NAMES)[self.repeat.current()])
+                if hasattr(self,'advanced_layout'):task.update(self.advanced_layout.calendar_values())
         if mode in ('network','download','combined'):
             task.update(idle_seconds=self.v['idle_seconds'].get(),timeout_seconds=float(self.v['timeout_hours'].get())*3600)
             if mode in ('network','combined'):task['threshold_kib']=self.v['threshold_kib'].get()
@@ -287,9 +259,12 @@ class TaskView:
         if not task:return
         if not task['name'] or any(t['name']==task['name'] and t['id']!=old['id'] for t in self.items()):
             messagebox.showerror('名称有误','名称不能为空或重复。',parent=self);return
-        previous=copy.deepcopy(old);old.update(task)
+        previous=copy.deepcopy(old);old.clear();old.update(task);old['id']=previous['id']
+        if self.advanced:old.update(enabled=False,next_at='')
+        elif 'favorite' in previous:old['favorite']=previous['favorite']
         try:self.commit()
         except OSError:old.clear();old.update(previous);raise
+        if self.advanced:self.app.automation.states.pop(old['id'],None);self.refresh_status()
     def duplicate(self):
         task=self.selected()
         if not task:return

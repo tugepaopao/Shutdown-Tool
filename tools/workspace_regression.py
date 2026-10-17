@@ -93,8 +93,15 @@ try:
   center.geometry(f'+{start[0]}+{start[1]}');pump()
   with patch('ui_floating.workareas',return_value=areas):keep_visible(center)
   pump();x,y=center.winfo_x(),center.winfo_y();left,top,right,bottom=areas[0]
+  print('Recovered bounds',center.geometry(),center.minsize(),areas,flush=True)
   check('display recovery '+str(left),left<=x and top<=y and x+center.winfo_width()<=right and y+center.winfo_height()<=bottom)
  keep_visible(center)
+ original=center.geometry();center.geometry('1400x1000+2500+100');pump()
+ with patch('ui_floating.workareas',return_value=[(0,0,800,600)]):keep_visible(center)
+ pump()
+ print('Small screen bounds',center.geometry(),center.minsize(),flush=True)
+ check('oversized center fits smaller replacement display',center.winfo_x()>=0 and center.winfo_y()>=0 and center.winfo_x()+center.winfo_width()<=800 and center.winfo_y()+center.winfo_height()<=600)
+ center.geometry(original);pump()
  a.engine.start_countdown(60);generation=a.engine.generation
  hide_workspace(a);pump();restore_workspace(a);pump()
  check('window switching preserves timer',a.engine.is_running() and a.engine.generation==generation)
