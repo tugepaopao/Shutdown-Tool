@@ -32,6 +32,9 @@ def create(window):
 def update(window):
     if getattr(window, '_dialog_caption', None) is None: return False
     if not window.winfo_exists(): return True
+    _strip_caption(window)
+    palette_stamp=(window.title(),theme.accent,tuple(sorted(theme.p.items())),getattr(window,'_dialog_chrome_hwnd',None))
+    if getattr(window,'_dialog_palette_stamp',None)==palette_stamp:return True
     window._dialog_caption.configure(bg=theme.c('bg'))
     window._dialog_title.configure(text=window.title(), bg=theme.c('bg'), fg=theme.c('fg'))
     stamp = (theme.accent, theme.c('bg'), theme.c('fg_dim'), round(22 * scale(window)))
@@ -46,6 +49,7 @@ def update(window):
     _strip_caption(window)
     from ui_dialog_palette import apply
     apply(window)
+    window._dialog_palette_stamp=palette_stamp
     return True
 
 

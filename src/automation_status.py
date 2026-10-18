@@ -4,6 +4,7 @@ import datetime as dt
 def status(task,states,now=None):
     if not task:return '已停用','尚未启用'
     now=now or dt.datetime.now();raw=states.get(task['id'],'') or task.get('last_state','')
+    if raw.startswith('中断预约待确认'):return '待确认',raw
     if task.get('pending_missed'):return ('待确认' if task.get('missed_policy')=='ask' else '待补执行'),task.get('last_state','错过待确认')
     if raw=='加入队列失败，未执行':return '入队失败',raw
     if raw in ('已错过，未执行','预约保存失败，未执行','监控结果保存失败，未执行'):return ('已错过' if raw=='已错过，未执行' else '保存失败'),raw
@@ -12,7 +13,7 @@ def status(task,states,now=None):
         if task.get('skip_date')==now.date().isoformat():return '今日跳过','今天已跳过；下次 '+task.get('next_at','').replace('T',' ')
         if task.get('mode')=='calendar':return '已启用','等待 '+task.get('next_at','').replace('T',' ')
         labels={'等待活动':'等待条件','传输中':'传输中','确认安静中':'确认中','等待无人操作':'等待空闲','前置程序运行中':'前置运行'}
-        return labels.get(raw,'等待条件'),raw or '等待活动'
+        return labels.get(raw,'等待条件'),({'等待活动':'等待目录文件变化' if task.get('mode')=='download' else '等待网络传输活动','确认安静中':'等待连续安静达到 '+str(task.get('idle_seconds',60))+' 秒'}.get(raw,raw)) or ('等待目录文件变化' if task.get('mode')=='download' else '等待网络传输活动')
     labels={'已过期，未补执行':'已过期','已错过，未执行':'已错过','已加入队列':'已入队','已完成，加入队列':'已入队','等待超时，未执行':'已超时','监控失败，未执行':'监控失败','加入队列失败，未执行':'入队失败','预约保存失败，未执行':'保存失败','监控结果保存失败，未执行':'保存失败','重开后需重新启用任务链':'需重启用'}
     if raw in labels:return labels[raw],raw
     if raw=='已停用':return '已停用',raw

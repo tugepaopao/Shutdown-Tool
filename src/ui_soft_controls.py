@@ -5,6 +5,20 @@ from theme import theme
 from ui_cozy import scale,cozy_icon
 from ui_dialog_palette import COLORS as C
 
+def keyboard_control(widget,activate):
+    original=widget.draw
+    def paint():
+        original()
+        from ui_focus import current_focus
+        if current_focus(widget) is widget:
+            widget.create_rectangle(2,2,max(3,widget.winfo_width()-3),max(3,widget.winfo_height()-3),outline=theme.accent,dash=(2,2),tags='focus-ring')
+    widget.draw=paint
+    widget.bind('<FocusIn>',lambda e:widget.draw(),add='+');widget.bind('<FocusOut>',lambda e:widget.draw(),add='+')
+    def invoke(event):
+        widget.focus_set();activate();return 'break'
+    widget.bind('<Return>',invoke);widget.bind('<space>',invoke)
+    widget.bind('<Button-1>',lambda e:widget.focus_set(),add='+')
+
 class SoftInput(tk.Canvas):
     def __init__(self,parent,variable,placeholder='',icon=None,command=None,width=180,height=34):
         self.s=scale(parent);self.variable=variable;self.placeholder=placeholder;self.icon=icon;self.command=command;self.disabled=False;self.focused=False;self.syncing=False
@@ -47,6 +61,7 @@ class SoftChoice(tk.Canvas):
         self.app=app;self.values=list(values);self.index=0;self.extra=extra;self.s=scale(parent)
         super().__init__(parent,height=round(34*self.s),width=100,bg=parent.cget('bg'),highlightthickness=0,bd=0,takefocus=True,cursor='hand2')
         self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',lambda e:self.open());self.bind('<space>',lambda e:self.open());self.bind('<Return>',lambda e:self.open())
+        keyboard_control(self,self.open)
     def current(self,index=None):
         if index is None:return self.index
         self.index=index;self.draw()
@@ -71,7 +86,8 @@ class Segments(tk.Canvas):
         super().__init__(parent,height=round(34*self.s),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
         self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',lambda e:self.choose(min(len(labels)-1,int(e.x/max(1,self.winfo_width())*len(labels)))))
         self.bind('<Left>',lambda e:self.choose(max(0,self.index-1)));self.bind('<Right>',lambda e:self.choose(min(len(labels)-1,self.index+1)))
-    def choose(self,index):self.index=index;self.draw();self.command(index)
+        keyboard_control(self,lambda:self.choose(self.index))
+    def choose(self,index):self.index=index;self.draw();self.command(index);return 'break'
     def draw(self):
         w,h=self.winfo_width(),self.winfo_height()
         if min(w,h)<2:return
@@ -89,7 +105,8 @@ class SoftToggle(tk.Canvas):
         super().__init__(parent,width=round(46*self.s),height=round(26*self.s),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
         self.trace=variable.trace_add('write',lambda *a:self.draw());self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',self.toggle);self.bind('<space>',self.toggle)
         self.bind('<Destroy>',lambda e:variable.trace_remove('write',self.trace) if e.widget is self else None)
-    def toggle(self,event=None):self.variable.set(not self.variable.get());self.command and self.command()
+        keyboard_control(self,self.toggle)
+    def toggle(self,event=None):self.variable.set(not self.variable.get());self.command and self.command();return 'break'
     def draw(self):
         s=self.s*3;im=Image.new('RGB',(round(46*s),round(26*s)),self.master.cget('bg'));d=ImageDraw.Draw(im);on=self.variable.get()
         d.rounded_rectangle((0,2*s,46*s,24*s),radius=11*s,fill=theme.accent if on else '#BCB4D0');x=(34 if on else 12)*s
@@ -102,6 +119,7 @@ class SoftRadio(tk.Canvas):
         super().__init__(parent,width=round(158*self.s),height=round(32*self.s),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
         self.trace=variable.trace_add('write',lambda *a:self.draw());self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',lambda e:variable.set(value));self.bind('<space>',lambda e:variable.set(value))
         self.bind('<Destroy>',lambda e:variable.trace_remove('write',self.trace) if e.widget is self else None)
+        keyboard_control(self,lambda:self.variable.set(self.value))
     def draw(self):
         self.delete('all');s=self.s;cy=self.winfo_height()/2;on=self.variable.get()==self.value
         q=4;im=Image.new('RGB',(round(25*s*q),max(1,self.winfo_height()*q)),self.master.cget('bg'));d=ImageDraw.Draw(im)

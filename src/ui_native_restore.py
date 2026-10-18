@@ -40,6 +40,8 @@ def install(window):
         restoring={"pending":False,"hidden":False}
         @_CALLBACK
         def native(h,message,wp,lp,ident,ref):
+            if message in (0x7E,0x2E0):window._system_display_changed=True
+            if message==0x1E or message==0x218 and wp in (7,18):window._system_clock_changed=True
             if message==0x82:  # WM_NCDESTROY: retire only this native wrapper.
                 cc.RemoveWindowSubclass(h,native,ident)
                 # Retain the Python callback through native destruction; a new

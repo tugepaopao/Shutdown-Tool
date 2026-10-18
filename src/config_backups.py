@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 KEEP=10
-EXCLUDED={'queue','pending_timer','autostart','templates','automations','float_x','float_y','float_positioned','float_docked'}
+EXCLUDED={'execution_journal','queue','pending_timer','autostart','templates','automations','float_x','float_y','float_positioned','float_docked'}
 
 def validate_settings(data):
     from app_config import DEFAULT_SETTINGS
@@ -28,6 +28,12 @@ def validate_settings(data):
     if data.get('quick_presets'):
         from quick_presets import validate
         validate(data['quick_presets'])
+    journal=data.get('execution_journal',[])
+    if not isinstance(journal,list) or len(journal)>1000:raise ValueError('执行交接记录格式错误')
+    ids=set()
+    for row in journal:
+        if not isinstance(row,dict) or not isinstance(row.get('id'),str) or row['id'] in ids or not isinstance(row.get('task'),dict) or row.get('state') not in {'pending','queued','submitting','submitted','done','failed','cancelled'}:raise ValueError('执行交接记录无效')
+        ids.add(row['id'])
     from task_store import normalize
     for key in ('queue','templates','automations'):
         for item in data.get(key,[]):normalize(item)
@@ -40,7 +46,7 @@ def portable(data):
     jobs=copy.deepcopy(data.get('automations') or [])
     for j in jobs:
         j['enabled']=False
-        for key in ('next_at','skip_date'):j.pop(key,None)
+        for key in ('next_at','skip_date','last_consumed_at'):j.pop(key,None)
     return {'format':'haozai-backup','schema':1,'settings':settings,'templates':copy.deepcopy(data.get('templates') or []),'automations':jobs}
 
 def folder(path=None):

@@ -6,9 +6,12 @@ sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'src'))
 from automation import AutomationController
 from automation_status import status
 def fail(*a,**k):raise OSError('test save failure')
+class Config(dict):
+ def save(self):return True
+
 def controller(task):
  c=AutomationController.__new__(AutomationController);c.states={};c.jobs=[task];c.tokens={'t':'token'};c.watchers={};c.closed=False;c.log=lambda *a,**k:None
- c.app=SimpleNamespace(enqueue_task=fail);c.persist=lambda:None
+ c.app=SimpleNamespace(enqueue_task=fail,cfg=Config(log_enabled=False));c.persist=lambda:None
  return c
 task=dict(id='t',name='test',mode='calendar',action='message',enabled=False)
 c=controller(task);c._dispatch(task)

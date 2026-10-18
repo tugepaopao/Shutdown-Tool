@@ -3,6 +3,7 @@ import queue
 import threading
 import time
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from theme import theme, flat_button
 from pc_controls import WindowsControls
 
@@ -54,7 +55,7 @@ class PercentSlider(tk.Canvas):
         self.create_line(margin,center,end,center,fill=theme.c('card_border'),width=4,capstyle='round')
         if not self.disabled: self.create_line(margin,center,x,center,fill=color,width=4,capstyle='round')
         self.create_oval(x-6,center-6,x+6,center+6,fill=theme.c('input_bg'),outline=color,width=2)
-        if self.focus_get() is self and getattr(self._root(),'_cozy_keyboard_navigation',False) and not self.disabled:
+        if current_focus(self) is self and getattr(self._root(),'_cozy_keyboard_navigation',False) and not self.disabled:
             self.create_rectangle(1,1,width-2,height-2,outline=theme.accent,dash=(2,2))
 
     def _set(self, value):
@@ -131,6 +132,11 @@ class ControlPanel(tk.Frame):
         row=tk.Frame(awake,bg=awake.cget('bg'));row.pack(fill='x',padx=12,pady=(8,12))
         self.awake_check=Switch(row,self.awake_var,command=self._awake_changed);self.awake_check.pack(side='right')
         self._label(row,'pc_awake_toggle',anchor='w',wraplength=240,justify='left').pack(side='left',fill='x',expand=True)
+        self.task_awake_var=tk.BooleanVar(self,bool(settings.app.cfg.get('keep_awake_during_tasks')))
+        taskrow=tk.Frame(awake,bg=awake.cget('bg'));taskrow.pack(fill='x',padx=12,pady=(0,10))
+        Switch(taskrow,self.task_awake_var,command=self._task_awake_changed).pack(side='right')
+        note=tk.Label(taskrow,text='任务期间保持电脑唤醒\n屏幕可熄灭；暂停、完成或取消后释放',bg=awake.cget('bg'),fg=theme.c('fg'),justify='left',anchor='w',font=theme.font(delta=-1))
+        note.pack(side='left',fill='x',expand=True);note.bind('<Configure>',lambda e:note.config(wraplength=max(80,e.width-8)))
         self.status = tk.Label(self, text='', bg=theme.c('bg'), fg=theme.c('fg_muted'),
                               font=getattr(self.winfo_toplevel(),'font',theme.font)(), anchor='w', justify='left', wraplength=400)
         self.status.pack(fill='x', pady=(0, 6))
@@ -143,6 +149,14 @@ class ControlPanel(tk.Frame):
         self.bind('<Map>',lambda e:self.set_active(True) if e.widget is self else None,add='+')
         self.bind('<Unmap>',lambda e:self.set_active(False) if e.widget is self else None,add='+')
 
+    def _task_awake_changed(self):
+        from ui_localize import messagebox
+        app=self.settings.app;previous=bool(app.cfg.get('keep_awake_during_tasks'))
+        app.cfg['keep_awake_during_tasks']=bool(self.task_awake_var.get())
+        if not app.cfg.save():
+            app.cfg['keep_awake_during_tasks']=previous;self.task_awake_var.set(previous)
+            messagebox.showerror('未保存','任务保持唤醒设置保存失败',parent=self.settings)
+        app._sync_task_awake()
     def _awake_changed(self):
         from ui_localize import messagebox
         app=self.settings.app;previous=bool(app.cfg.get("keep_display_on"));wanted=bool(self.awake_var.get())

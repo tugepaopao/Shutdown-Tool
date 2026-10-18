@@ -57,7 +57,8 @@ class FavoriteButton(CircleButton):
 class LibraryCards:
     def __init__(self, view):
         self.view=view;self.app=view.app;self.advanced=view.advanced;self.s=scale(view)
-        self.rows={};self.signature=None;self._painting=False;self._selected_key=None
+        self.rows={};self.signature=None;self._painting=False;self._selected_key=None;self._viewport_job=None;self._fonts={}
+        self._search_job=None;self._selection_stamp=None
         # Keep the existing task selection API without displaying a second table.
         self.tv=view.tv=ttk.Treeview(view,columns=('name','action','when','state'),show='headings',selectmode='browse')
         self.tv.bind('<<TreeviewSelect>>',lambda e:self.selection_changed())
@@ -75,7 +76,8 @@ class LibraryCards:
             self.filters.columnconfigure(i,weight=1,uniform='filters')
             b=flat_button(self.filters,self.tr(title),lambda k=key:self.set_filter(k),font=theme.font(delta=-2),padx=3,pady=5)
             b.grid(row=0,column=i,sticky='ew',padx=2);self.filter_buttons[key]=(b,title)
-        self.query.trace_add('write',lambda *a:self.refresh())
+        self._query_trace=self.query.trace_add('write',self.defer_search)
+        self.search.entry.bind('<Return>',lambda e:self.refresh())
         self.summary=CozyFrame(view,bg=C['card']);self.summary.pack(fill='x',padx=4,pady=(3,8))
         inner=tk.Frame(self.summary,bg=C['card']);inner.pack(fill='x',padx=12,pady=10)
         self.flower=tk.Label(inner,bg=C['card'])
@@ -138,7 +140,7 @@ class LibraryCards:
         self.canvas=tk.Canvas(wrap,bg=C['card'],highlightthickness=0,height=round(120*self.s),takefocus=True)
         self.canvas.grid(row=1,column=0,sticky='nsew')
         self.scroll=ttk.Scrollbar(wrap,command=self.canvas.yview);self.scroll.grid(row=1,column=1,sticky='ns')
-        self.canvas.config(yscrollcommand=self.scroll.set)
+        self.canvas.config(yscrollcommand=self.scrolled)
         self.body=tk.Frame(self.canvas,bg=C['card']);self.body_item=self.canvas.create_window(0,0,window=self.body,anchor='nw')
         self.body.bind('<Configure>',lambda e:self.canvas.config(scrollregion=self.canvas.bbox('all')))
         self.canvas.bind('<Configure>',lambda e:self.layout(e.width))
@@ -171,6 +173,45 @@ class LibraryCards:
     def cleanup(self,event):
         if event.widget is self.view and self._wheel_id:
             self.view.owner.unbind('<MouseWheel>',self._wheel_id);self._wheel_id=None
+            if self._viewport_job:self.view.after_cancel(self._viewport_job);self._viewport_job=None
+            if self._search_job:self.view.after_cancel(self._search_job);self._search_job=None
+            self.query.trace_remove('write',self._query_trace)
+
+    def defer_search(self,*args):
+        if self._search_job:self.view.after_cancel(self._search_job)
+        self._search_job=self.view.after(150,self.refresh)
+
+    def scrolled(self,*args):
+        self.scroll.set(*args)
+        if self._viewport_job is None:self._viewport_job=self.view.after_idle(self.materialize_visible)
+
+    def materialize_visible(self):
+        if self._viewport_job:self.view.after_cancel(self._viewport_job)
+        self._viewport_job=None
+        extent=round(49*self.s)+4;first=max(0,int(self.canvas.canvasy(0)//extent)-2)
+        count=max(8,int(self.canvas.winfo_height()/extent)+5);changed=False
+        for iid in list(self.rows)[first:first+count]:
+            if 'name' not in self.rows[iid]:self.materialize(iid);changed=True
+        if changed:self.layout();self.selection_changed()
+
+    def materialize(self,iid):
+        data=self.rows[iid];task=data['task'];row=data['frame']
+        if data.get('lazy'):
+            row=CozyFrame(row,bg=C['card'],radius=10);row.pack(fill='both',expand=True);data['surface']=row
+        name=self.label(row,task['name'],bold=True);icon=self.label(row,'')
+        icon._photo=cozy_icon(row,'bell' if task['action']=='message' else task['action'],round(22*self.s),ink=theme.accent);icon.config(image=icon._photo)
+        edit=flat_button(row,self.tr('编辑'),lambda iid=iid:self.edit_row(iid),font=theme.font(delta=-2),padx=2,pady=3);edit._selection_outline='#D8CDEF'
+        enable_button(edit,not self.advanced or not task.get('enabled'))
+        state=automation_status(task,self.app.automation.states)[0] if self.advanced else ('常用' if task.get('favorite') else '普通')
+        condition=self.label(row,self.schedule(task),small=True);badge=self.badge(row,state)
+        self.paint_badge(badge,state,bool(task.get('enabled')) if self.advanced else None if task.get('favorite') else False)
+        data.update(name=name,icon=icon,edit=edit,condition=condition,badge=badge,action=task['action'])
+        for widget in (row,row._surface,name,icon,condition,badge):
+            widget.bind('<Button-1>',lambda e,iid=iid:self.select(iid));widget.bind('<Double-Button-1>',lambda e,iid=iid:self.edit_row(iid))
+        from ui_settings_controls import Tooltip
+        Tooltip(name,lambda iid=iid:self.rows[iid]['task']['name']+'\n'+self.app.describe_action(self.rows[iid]['task']))
+        Tooltip(condition,lambda iid=iid:self.schedule(self.rows[iid]['task']))
+        Tooltip(badge,lambda iid=iid:self.tr(automation_status(self.rows[iid]['task'],self.app.automation.states)[1]) if self.advanced else self.tr('常用' if self.rows[iid]['task'].get('favorite') else '普通'))
 
     def label(self,parent,text,small=False,bold=False):
         return tk.Label(parent,text=self.tr(text),bg=C['card'],fg=C['muted'] if small else C['fg'],font=theme.font(delta=-2 if small else 0,bold=bold),anchor='w',bd=0,padx=0)
@@ -186,7 +227,9 @@ class LibraryCards:
         badge.text=self.tr(text);badge.fill=bg;badge.ink=fg;badge.redraw()
 
     def fit(self,label,text,width):
-        font=tkfont.Font(root=self.view,font=label.cget('font'));width=max(0,width-4)
+        key=str(label.cget('font'))
+        if key not in self._fonts:self._fonts[key]=tkfont.Font(root=self.view,font=key)
+        font=self._fonts[key];width=max(0,width-4)
         result=text
         if font.measure(text)>width:
             lo,hi=0,len(text)
@@ -240,9 +283,11 @@ class LibraryCards:
         return 'break'
 
     def refresh(self):
-        all_items=self.view.items();items=self.visible_items(all_items)
+        if self._search_job:self.view.after_cancel(self._search_job);self._search_job=None
+        all_items=self.view.items()
         signature=(repr(all_items),repr(self.app.automation.states) if self.advanced else '',self.app.T.lang,self.filter_key,self.query.get())
         if signature!=self.signature:
+            items=self.visible_items(all_items)
             if not self.advanced:
                 self.search.grid() if len(all_items)>=8 or self.query.get() else self.search.grid_remove()
             for key,(b,title) in self.filter_buttons.items():
@@ -263,6 +308,7 @@ class LibraryCards:
                 if iid in self.rows:
                     row=self.rows[iid];row['task']=task
                     if tuple(self.tv.item(iid,'values'))!=values:self.tv.item(iid,values=values)
+                    if 'name' not in row:continue
                     if row['action']!=task['action']:
                         row['action']=task['action'];icon=row['icon']
                         icon._photo=cozy_icon(icon,'bell' if task['action']=='message' else task['action'],round(22*self.s),ink=theme.accent);icon.config(image=icon._photo)
@@ -270,22 +316,11 @@ class LibraryCards:
                     enable_button(row['edit'],not self.advanced or not task.get('enabled'))
                     continue
                 self.tv.insert('','end',iid=iid,values=values)
-                row=CozyFrame(self.body,bg=C['card'],height=round(49*self.s),radius=10);row.pack(fill='x',pady=2);row.pack_propagate(False)
-                name=self.label(row,task['name'],bold=True);icon=self.label(row,'')
-                icon._photo=cozy_icon(row,'bell' if task['action']=='message' else task['action'],round(22*self.s),ink=theme.accent);icon.config(image=icon._photo)
-                edit=flat_button(row,self.tr('编辑'),lambda iid=iid:self.edit_row(iid),font=theme.font(delta=-2),padx=2,pady=3)
-                edit._selection_outline='#D8CDEF'
-                enable_button(edit,not self.advanced or not task.get('enabled'))
-                condition=self.label(row,schedule,small=True);badge=self.badge(row,state)
-                self.paint_badge(badge,state,enabled)
-                self.rows[iid]=dict(frame=row,name=name,icon=icon,edit=edit,condition=condition,badge=badge,task=task,action=task['action'])
-                for widget in (row,row._surface,name,icon,condition,badge):
-                    widget.bind('<Button-1>',lambda e,iid=iid:self.select(iid))
-                    widget.bind('<Double-Button-1>',lambda e,iid=iid:self.edit_row(iid))
-                from ui_settings_controls import Tooltip
-                Tooltip(name,lambda iid=iid:self.rows[iid]['task']['name']+'\n'+self.app.describe_action(self.rows[iid]['task']))
-                Tooltip(condition,lambda iid=iid:self.schedule(self.rows[iid]['task']))
-                Tooltip(badge,lambda iid=iid:self.tr(automation_status(self.rows[iid]['task'],self.app.automation.states)[1]) if self.advanced else self.tr('常用' if self.rows[iid]['task'].get('favorite') else '普通'))
+                lazy=len(items)>30
+                row=tk.Frame(self.body,bg=C['card'],height=round(49*self.s)) if lazy else CozyFrame(self.body,bg=C['card'],height=round(49*self.s),radius=10)
+                row.pack(fill='x',pady=2);row.pack_propagate(False)
+                self.rows[iid]=dict(frame=row,task=task,action=task['action'],lazy=lazy)
+                if not lazy:self.materialize(iid)
             self.rows={iid:self.rows[iid] for iid in new_order}
             if old_order!=new_order:
                 for index,(iid,row) in enumerate(self.rows.items()):
@@ -295,7 +330,7 @@ class LibraryCards:
                 self.empty.pack(fill='x',padx=12,pady=32)
             if selected and selected[0] in self.rows:self.tv.selection_set(selected[0])
             elif items:self.tv.selection_set(str(items[0]['id']))
-            self._painting=False;self.layout();self.canvas.update_idletasks();self.canvas.yview_moveto(position)
+            self._painting=False;self.materialize_visible();self.layout();self.canvas.update_idletasks();self.canvas.yview_moveto(position)
             key='advanced' if self.advanced else 'templates'
             if hasattr(self.view.owner,'tab_buttons'):
                 self.view.owner.tab_buttons[key].config(text=self.app.T('center_'+key)+'  '+str(len(all_items)))
@@ -313,6 +348,10 @@ class LibraryCards:
             heading.place(x=x+gap+inset,y=0,width=max(1,w-2*gap-inset),relheight=1)
             self.fit(heading,self.tr(('名称','操作','执行方式','状态')[i]),w-2*gap-inset);x+=w
         for row in self.rows.values():
+            if 'name' not in row:continue
+            stamp=(width,row['task']['name'],self.schedule(row['task']))
+            if row.get('_layout_stamp')==stamp:continue
+            row['_layout_stamp']=stamp
             task=row['task'];w0,w1,w2,w3=widths;icon_width=0 if self.advanced else round(25*self.s)
             if not self.advanced:row['icon'].place(x=gap,y=round(13*self.s),width=icon_width,height=round(22*self.s))
             row['name'].place(x=gap+name_inset,y=0,width=max(1,w0-2*gap-name_inset),relheight=1)
@@ -324,13 +363,18 @@ class LibraryCards:
 
     def selection_changed(self):
         if self._painting:return
+        stamp=(self.signature,tuple(self.tv.selection()),dt.date.today(),tuple(k for k,row in self.rows.items() if 'name' in row))
+        if stamp==self._selection_stamp:return
+        self._selection_stamp=stamp
         selected=self.view.selected();iid=str(selected['id']) if selected else None
         if iid!=self._selected_key:
             self._selected_key=iid
         for key,row in self.rows.items():
+            if 'name' not in row:continue
             bg=C['hover'] if key==iid else C['card']
-            if row['frame'].cget('bg')!=bg:
-                row['frame'].config(bg=bg)
+            surface=row.get('surface',row['frame'])
+            if surface.cget('bg')!=bg:
+                surface.config(bg=bg)
                 for name in ('name','icon','condition'):row[name].config(bg=bg)
                 row['edit']._last_paint=None;row['edit']._schedule()
                 row['badge'].redraw()
@@ -370,6 +414,7 @@ class LibraryCards:
         items=[('新建任务',self.view.add,True,'enqueue'),('编辑',self.view.edit,has and (not self.advanced or not selected.get('enabled')),'parameters'),('复制',self.view.duplicate,has,'copy'),('删除',self.view.remove,has,'clear')]
         if self.advanced:
             items += [('今天跳过一次',self.view.skip_today,has and selected.get('mode')=='calendar' and selected.get('repeat','once')!='once' and selected.get('enabled',False) and selected.get('skip_date')!=dt.date.today().isoformat(),'clock'),('未来7天任务预览',lambda:PreviewWindow(self.app,self.view.owner),True,'calendar')]
+            items += [('处理中断预约',self.app.automation.review_handoffs,True,'document')]
         else:items += [('撤销上一次删除',self.view.undo_delete,self.app.undo.available(),'restart')]
         menu=tk.Menu(self.view,tearoff=0)
         for text,fn,enabled,icon in items:menu.add_command(label=self.tr(text),command=lambda fn=fn:self.view.safe(fn),state='normal' if enabled else 'disabled')

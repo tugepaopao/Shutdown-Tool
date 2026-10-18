@@ -18,6 +18,7 @@ class UndoManager:
         ids={x.get('id') for x in current};names={x.get('name') for x in current}
         for index,value in rows:
             value=copy.deepcopy(value)
+            if kind=='queue':value.pop('occurrence_id',None);value.pop('source_automation',None)
             if value.get('id') in ids:raise ValueError('原任务标识已存在，未覆盖现有任务')
             if kind=='templates' and value.get('name') in names:raise ValueError('模板名称已存在，请先重命名现有模板')
             ids.add(value.get('id'));names.add(value.get('name'))
@@ -37,6 +38,8 @@ def remove_queue(app,ids):
     rows=[(i,t) for i,t in enumerate(app.task_queue) if t['id'] in ids]
     if not rows:return
     old=app.task_queue;old_data=copy.deepcopy(app.cfg.data)
+    import execution_journal as journal
+    journal.cancel_in_memory(app,[t for _,t in rows])
     app.task_queue=[t for t in old if t['id'] not in ids];app._save_queue()
     if app._active_task and app._active_task.get('id') in ids:app.cfg['pending_timer']={} 
     if not app.cfg.save():app.task_queue=old;app.cfg.data=old_data;raise OSError('删除未保存，原队列已保留')

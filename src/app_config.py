@@ -35,6 +35,8 @@ M_DATETIME = "datetime"
 M_INTERVAL = "interval"
 
 DEFAULT_SETTINGS = {
+    "keep_awake_during_tasks": False,
+    "execution_journal": [],
     "skin": "violet",
     "main_topmost": False,
     "float_enabled": False, "float_topmost": False, "float_opacity": 100, "float_zorder_revision": 0,
@@ -204,6 +206,7 @@ class Config(object):
 
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
+                f.flush();os.fsync(f.fileno())
             os.replace(tmp, config_file())
             return True
         except Exception:

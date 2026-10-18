@@ -1,5 +1,6 @@
 """One window for the queue, named templates and advanced jobs."""
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from tkinter import ttk
 from ui_window import prepare, show, button_grid, compact_show
 from theme import theme,flat_button,apply_nav_state
@@ -12,7 +13,7 @@ class TaskCenter(tk.Toplevel):
         super().__init__(app.root)
         prepare(self)
         self.app, self.T = app, app.T
-        self.previous_grab = app.root.grab_current()
+        self.previous_grab = current_grab(app.root)
         from i18n import feature_text
         self.title(feature_text(self.T,'任务中心'))
         self.configure(bg=theme.c('bg'))
@@ -23,6 +24,7 @@ class TaskCenter(tk.Toplevel):
         self.notebook = ttk.Notebook(self, style='TaskCenter.TNotebook')
         self.notebook.pack(fill='both', expand=True, padx=8, pady=(8, 8))
         self.panels = {}
+        self._painted_tab=None;self._last_counts=None
         self.frames = {}
         self.notebook._local_tab_keys = {}
         for key, label_key in [('queue', 'center_queue'), ('templates', 'center_templates'), ('advanced', 'center_advanced')]:
@@ -57,10 +59,13 @@ class TaskCenter(tk.Toplevel):
         self._ensure_panel(key)
         target=self.frames[key]
         if self.notebook.select()!=str(target):self.notebook.select(target)
-        self._paint_tabs()
+        if self._painted_tab==str(target):self.refresh_status(force=True)
+        else:self._paint_tabs()
 
     def _paint_tabs(self):
         selected=self.notebook.select()
+        if selected==self._painted_tab:return
+        self._painted_tab=selected
         for key,b in self.tab_buttons.items():apply_nav_state(b,str(self.frames[key])==selected)
         from ui_dialog_palette import apply
         apply(self,self.tab_bar)
@@ -71,7 +76,9 @@ class TaskCenter(tk.Toplevel):
         self.T=self.app.T
         active=(self.app._active_task or {}).get('id') if self.app.engine.is_running() else None
         counts={'queue':sum(t.get('id')!=active for t in self.app.task_queue),'templates':len(self.app.cfg.get('templates') or []),'advanced':len(self.app.automation.jobs)}
-        for key,b in self.tab_buttons.items():b.config(text=self.T('center_'+key)+'  '+str(counts[key]))
+        if counts!=self._last_counts:
+            for key,b in self.tab_buttons.items():b.config(text=self.T('center_'+key)+'  '+str(counts[key]))
+            self._last_counts=counts
         selected=self.notebook.select()
         for key,panel in self.panels.items():
             if str(panel.master)==selected:

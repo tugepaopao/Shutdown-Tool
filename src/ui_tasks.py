@@ -128,6 +128,8 @@ class TaskEditor(tk.Toplevel):
     def save(self):
         try:
             result=self.collect()
+            from task_capabilities import validate
+            validate(result)
             if self.validate:self.validate(result)
             self.result=result
         except (ValueError,TypeError) as exc:messagebox.showerror('任务设置有误',str(exc),parent=self);return
@@ -213,6 +215,7 @@ class TaskView:
         ids=self.tv.selection();return next((t for t in self.items() if ids and str(t['id'])==ids[0]),None)
     def refresh_status(self):
         if hasattr(self,'cards'):
+            if self.cards._search_job:return
             self.cards.refresh()
             return
         items=self.items()

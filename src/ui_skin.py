@@ -4,6 +4,7 @@ No layered HWND, transparent-color key or click intercepting overlay is used.
 Every original Button/Radiobutton/Entry and callback remains the actual control.
 """
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 import tkinter.font as tkfont
 from PIL import Image,ImageDraw,ImageTk,ImageOps
 from ui_cozy import CozyButton,CozyFrame,pil_font,scale
@@ -215,7 +216,7 @@ class SkinRenderer:
   v=record['virtual'];get=record['get'];box=self.box(widget)
   disabled=str(get('state'))=='disabled' if 'state' in widget.keys() else False
   color=str(get('disabledforeground' if disabled else 'foreground'))
-  stamp=(self.generation,box,tuple((k,str(x)) for k,x in v.items()),str(get('font')),color,disabled,widget.focus_get() is widget)
+  stamp=(self.generation,box,tuple((k,str(x)) for k,x in v.items()),str(get('font')),color,disabled,current_focus(widget) is widget)
   if record['stamp']==stamp:return
   record['stamp']=stamp;im=self.crop(widget)
   if isinstance(widget,tk.Radiobutton):im=im.crop((0,0,max(1,im.width-2),max(1,record['natural_height']-2)))
@@ -250,7 +251,7 @@ class SkinRenderer:
    if text:
     for index,line in enumerate(lines):
      b=draw.textbbox((0,0),line,font=pf);draw.text((tx-b[0],ty+index*font.metrics('linespace')+(font.metrics('linespace')-(b[3]-b[1]))/2-b[1]),line,font=pf,fill=color)
-   if widget.focus_get() is widget and isinstance(widget,tk.Radiobutton):draw.rounded_rectangle((0,0,im.width-1,im.height-1),radius=8,outline=theme.accent)
+   if current_focus(widget) is widget and isinstance(widget,tk.Radiobutton):draw.rounded_rectangle((0,0,im.width-1,im.height-1),radius=8,outline=theme.accent)
    record['ink']=im
   base.paste(record['ink'],(0,0),record['ink']);im=base
   if record['photo'] is not None and (record['photo'].width(),record['photo'].height())==im.size:record['photo'].paste(im)

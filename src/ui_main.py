@@ -9,6 +9,7 @@ import queue
 import threading
 import time
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from tkinter import filedialog, ttk
 from ui_localize import messagebox
 from ui_window import show
@@ -891,7 +892,7 @@ class App(object):
         try:
             import ctypes
             u = ctypes.windll.user32
-            modal=self.root.grab_current()
+            modal=current_grab(self.root)
             target=modal.winfo_toplevel() if modal is not None else self.root
             u.GetAncestor.argtypes=[ctypes.c_void_p,ctypes.c_uint]
             u.GetAncestor.restype=ctypes.c_void_p
@@ -1122,6 +1123,8 @@ class App(object):
         self._set_running_ui(False)
         self.progress["value"] = 0
         self._active_task = None
+        import execution_journal as journal
+        journal.cancel_in_memory(self,self.task_queue)
         self.task_queue = []
         self._save_queue()
 
@@ -1176,6 +1179,10 @@ class App(object):
     def _validate_action(self, action, settings=None):
         T = self.T
         settings = self.cfg if settings is None else settings
+        from task_capabilities import validate
+        try:validate(dict(settings.data if hasattr(settings,'data') else settings,action=action))
+        except (ValueError,OSError) as exc:
+            messagebox.showinfo(T('tip_title'),str(exc),parent=self.root);return False
         if action == A_RUN and not (settings.get("program_path") or "").strip():
             messagebox.showinfo(T("tip_title"), T("tip_need_program"), parent=self.root)
             return False
@@ -1209,6 +1216,7 @@ class App(object):
             for key in ("program_path", "close_program_path", "sound_file", "message_text", "force_close_apps"):
                 if key in self._active_task: settings[key] = self._active_task[key]
         if not self._validate_action(action, settings):
+            self._set_status('未执行：任务条件不可用')
             return False
         if ask and self._need_confirm(action) and not self._confirm_skipped:
             # v1.2.0：确认框换成自绘对话框，多一个「本次启动不再询问」
@@ -1225,17 +1233,30 @@ class App(object):
                 self._confirm_skipped = True
         self._log(run_log.KIND_INFO, "log_exec_text", a=action_label(action, T))
         if action == A_MESSAGE:
+            import execution_journal as journal
+            occurrence=(self._active_task or {}).get('occurrence_id') if not ask else None
+            try:journal.mark(self,occurrence,'submitting')
+            except OSError as exc:
+                messagebox.showerror('未执行',str(exc),parent=self.root);return False
             self.show_toast(settings.get("message_text") or "")
+            if occurrence:journal.mark(self,occurrence,'done')
             self._set_status("status_executed", a=action_label(action, T))
             self._log(run_log.KIND_DONE, "log_done_text", a=action_label(action,T),ok=True)
             return True
 
+        import execution_journal as journal
+        occurrence=(self._active_task or {}).get('occurrence_id') if not ask else None
+        try:journal.mark(self,occurrence,'submitting')
+        except OSError as exc:
+            messagebox.showerror('未执行',str(exc),parent=self.root);return False
+        self._actions_inflight=getattr(self,'_actions_inflight',0)+1
         def worker():
-            ok, err = perform(action, settings)
+            try:ok,err=perform(action,settings)
+            except Exception as exc:ok,err=False,str(exc)
             if not ok:
-                self.queue.put(("action_error", {"err": err, "action": action}))
+                self.queue.put(("action_error", {"err": err, "action": action,"occurrence":occurrence}))
             else:
-                self.queue.put(("action_done", {"action": action}))
+                self.queue.put(("action_done", {"action": action,"detail":err,"occurrence":occurrence}))
         threading.Thread(target=worker, daemon=True, name="HaozaiziAction").start()
         return True
 
@@ -1325,6 +1346,14 @@ class App(object):
         """由计时线程调用，只做入队。"""
         self.queue.put((event, payload))
 
+    def _sync_task_awake(self):
+        awake=getattr(self,'display_awake',None)
+        if awake is None:return
+        running=self.engine.is_running() and not self.engine.paused
+        monitoring=bool(getattr(getattr(self,'automation',None),'watchers',{}))
+        try:awake.set_task_active(bool(self.cfg.get('keep_awake_during_tasks')) and (running or monitoring))
+        except OSError as exc:run_log.exception('task-awake','任务保持唤醒失败',exc,'ui_error')
+
     def _pump(self):
         if getattr(self,"_closing_app",False):return
         # Native restore can arrive without a Tk Map event; complete it on
@@ -1333,17 +1362,33 @@ class App(object):
             from ui_window import present_main
             present_main(self.root)
         self._poll_single_instance()
+        if getattr(self.root,'_system_display_changed',False):
+            self.root._system_display_changed=False
+            from ui_workspace import windows,keep_visible
+            for window in (self.root,*windows(self)):
+                if window.winfo_viewable():keep_visible(window)
+        if getattr(self.root,'_system_clock_changed',False):
+            self.root._system_clock_changed=False
+            if hasattr(self,'automation'):self.automation._stage('resume','系统恢复后预约检查异常',self.automation.tick)
         import time
         budget=time.perf_counter()+.008
         try:
             for _ in range(100):
                 event, payload = self.queue.get_nowait()
-                self._handle(event, payload)
+                try:self._handle(event, payload)
+                except Exception as exc:
+                    run_log.exception('event:'+event,'事件处理异常：'+event,exc,'ui_error' if event=='ui_call' else 'scheduler_error')
                 if getattr(self,"_closing_app",False):return
                 if time.perf_counter()>=budget:break
         except queue.Empty:
             pass
-        self.root.after(1 if not self.queue.empty() else 100, self._pump)
+        self._sync_task_awake()
+        active=self.engine.is_running() or bool(getattr(self,'_actions_inflight',0))
+        visible=self.root.state()=='normal'
+        if not visible:
+            from ui_workspace import windows
+            visible=any(w.winfo_viewable() for w in windows(self))
+        self.root.after(1 if not self.queue.empty() else 100 if active else 150 if visible else 500, self._pump)
 
     def _handle(self, event, payload):
         if event == "ui_call":
@@ -1353,6 +1398,11 @@ class App(object):
             self.automation.handle(payload)
             return
         T = self.T
+        if event in ('action_done','action_error'):
+            self._actions_inflight=max(0,getattr(self,'_actions_inflight',0)-1)
+            import execution_journal as journal
+            try:journal.mark(self,payload.get('occurrence'),'failed' if event=='action_error' else 'submitted',payload.get('err',payload.get('detail','')))
+            except OSError as exc:run_log.exception('execution-result','执行结果保存失败',exc,'scheduler_error')
         # 作废轮次的 tick / warn / finished 全部丢弃，取消后不执行旧到点动作。
         # 不丢的话，「取消执行 / 清除」之后状态栏会被一条迟到的旧 tick
         # 覆盖回「定时器运行中」，用户以为取消没生效。
@@ -1406,14 +1456,14 @@ class App(object):
             task = self._active_task or {}
             action = task.get("action") or self._current_action()
             if payload.get("repeat"):
+                self._set_status("正在处理："+action_label(action,T))
                 self.perform_action(action, ask=False)
-                self._set_status("status_executed", a=action_label(action, T))
             else:
                 self._close_cancel_toast()
                 self._set_running_ui(False)
                 self.progress["value"] = 100
+                self._set_status("正在处理："+action_label(action,T))
                 self.perform_action(action, ask=False)
-                self._set_status("status_executed", a=action_label(action, T))
                 if self.tray:
                     self.tray.refresh()
                 # 跑完的这个任务从队列里摘掉，稍后接着跑下一个
@@ -1430,9 +1480,9 @@ class App(object):
                     self.root.after(1200,lambda:self._start_next_task() if self.engine.generation==generation else None)
         elif event == "action_done":
             a = payload.get("action") or self._current_action()
-            self._set_status("status_executed", a=action_label(a, T))
-            self._log(run_log.KIND_DONE, "log_done_text",
-                      a=action_label(a, T), ok=True)
+            text=payload.get('detail') or ('命令已提交：'+action_label(a,T) if a in (A_SHUTDOWN,A_RESTART,A_LOGOFF,A_SLEEP,A_HIBERNATE,A_RUN) else '操作已完成：'+action_label(a,T))
+            self._set_status(text)
+            if self.cfg.get('log_enabled',True):run_log.add('info' if '提交' in text or '未确认' in text else 'done',text,action=a)
         elif event == "action_error":
             a = payload.get("action") or self._current_action()
             err = str(payload.get("err"))
@@ -1482,7 +1532,7 @@ class App(object):
         try:
             import ctypes
             u = ctypes.windll.user32
-            modal=self.root.grab_current()
+            modal=current_grab(self.root)
             target=modal.winfo_toplevel() if modal is not None else self.root
             u.GetAncestor.argtypes=[ctypes.c_void_p,ctypes.c_uint]
             u.GetAncestor.restype=ctypes.c_void_p
@@ -1532,6 +1582,8 @@ class App(object):
           · True —— 用户点「×」关闭窗口，他多半以为程序被关掉了，
             这时给一次「已收进托盘」的说明。每个程序只提醒一次。
         """
+        from ui_workspace import active_modal
+        if active_modal(self.root) is not None:return
         tray_ok = bool(self.tray and self.tray.available())
         if not tray_ok or not self.cfg.get("minimize_to_tray", True):
             try:

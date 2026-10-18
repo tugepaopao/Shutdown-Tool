@@ -70,7 +70,7 @@ def _shutdown_result(rc):
     于是界面照样显示「操作已执行」，用户以为设好了、到点却什么都没发生。
     """
     if rc is None:
-        return True, ""            # 已发出但拿不到码（超时）→ 不当失败处理
+        return True, "结果未确认：命令已提交，等待系统响应超时"
     if rc == 0:
         return True, ""
     if rc in (1116, 1190):         # 系统已在关机/重启流程中 → 目的已达到

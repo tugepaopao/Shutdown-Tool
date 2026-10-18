@@ -6,7 +6,7 @@
 ; ============================================================
 
 #define MyAppName "定时关机工具"
-#define MyAppVersion "2.0.7"
+#define MyAppVersion "2.0.11"
 #define MyAppPublisher "@wenhao"
 #define MyAppExeName "定时关机工具.exe"
 #define MyAppId "{{8F3C1A72-5B4E-4C9D-9E21-7A6B0C5D3F10}"
@@ -33,7 +33,7 @@ AllowNoIcons=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\output
-OutputBaseFilename=Shutdown-Tool-v2.0.7-Setup
+OutputBaseFilename=Shutdown-Tool-v2.0.11-Setup
 SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} v{#MyAppVersion}
@@ -45,11 +45,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
 MinVersion=10.0
-VersionInfoVersion=2.0.7.0
+VersionInfoVersion=2.0.11.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} 安装程序
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion=2.0.7.0
+VersionInfoProductVersion=2.0.11.0
 
 [Languages]
 Name: "chinese"; MessagesFile: "ChineseSimplified.isl"
@@ -72,7 +72,7 @@ Name: "desktopicon"; Description: "{cm:create_desktop_shortcut}"; GroupDescripti
 Name: "startupicon"; Description: "{cm:startup_task}"; GroupDescription: "{cm:group_startup}"
 
 [Files]
-Source: "{#SrcExeDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SrcExeDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\使用说明.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

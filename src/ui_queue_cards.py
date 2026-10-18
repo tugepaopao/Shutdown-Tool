@@ -1,5 +1,6 @@
 """Queue cards keep the existing queue operations and selection contract."""
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from tkinter import ttk
 from PIL import Image,ImageDraw,ImageTk
 from theme import theme,flat_button,enable_button
@@ -20,7 +21,7 @@ class CircleButton(CozyButton):
         self._draw_job=None
         if not self.winfo_exists():return
         w=self.winfo_width() if self.winfo_width()>1 else round(40*scale(self));h=self.winfo_height() if self.winfo_height()>1 else w
-        disabled=self._state=='disabled';focused=self.focus_get() is self and self._keyboard_focus
+        disabled=self._state=='disabled';focused=current_focus(self) is self and self._keyboard_focus
         key=(w,h,self.paused,disabled,self._hovering,self._pressed,focused,theme.accent,self.master.cget('bg'))
         if key==self._circle_stamp:return
         self._circle_stamp=key;q=4;im=Image.new('RGB',(w*q,h*q),self.master.cget('bg'));d=ImageDraw.Draw(im)

@@ -154,12 +154,11 @@ class SettingsWindow(tk.Toplevel):
         if hasattr(self,'hotkey_panel'):self.hotkey_panel.end_capture()
         new_page=key not in self._built_pages
         self._ensure_page(key)
-        for k,f in self.pages.items():
-            if k==key:f.pack(fill='both',expand=True)
-            else:f.pack_forget()
-        self._current=key;self.nav.paint(key)
         if new_page:
             apply(self,self.pages[key]);self._compact_control_fonts(self.pages[key])
+        if self._current:self.pages[self._current].pack_forget()
+        self.pages[key].pack(fill='both',expand=True)
+        self._current=key;self.nav.paint(key)
         if self._pc_panel:self._pc_panel.set_active(key=='pc')
         if hasattr(self,'save_state'):self._paint_save_state()
         if key=='pc':self.pc_panel.refresh()

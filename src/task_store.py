@@ -82,6 +82,7 @@ def normalize(task):
             result['user_idle_seconds']=number(task.get('user_idle_seconds',600),60,86400,'无人操作秒数')
             if result['timeout_seconds']<=result['user_idle_seconds']:raise ValueError('最长等待必须大于无人操作时长')
     if task.get('id') is not None:result['id']=task['id']
+    if task.get('occurrence_id'):result['occurrence_id']=str(task['occurrence_id'])
     if task.get('source_automation'):result['source_automation']=str(task['source_automation'])
     return result
 
@@ -111,7 +112,7 @@ def save_template(cfg,name,task):
     items=copy.deepcopy(cfg.get('templates') or [])
     if any(x.get('name')==name for x in items):raise ValueError('模板名称已存在，请换一个名称或编辑原模板')
     if len(items)>=MAX_TASKS:raise ValueError('模板已达200个上限')
-    value=normalize(task);value.pop('id',None);value['name']=name;value['id']=uuid.uuid4().hex
+    value=normalize(task);value.pop('occurrence_id',None);value.pop('source_automation',None);value.pop('id',None);value['name']=name;value['id']=uuid.uuid4().hex
     items.append(value);cfg['templates']=items;return value
 
 def filter_logs(rows,query='',kind='',start='',end=''):
@@ -130,16 +131,17 @@ def export_csv(path,rows):
         writer=csv.writer(f);writer.writerow(['时间','事件','内容','详情','是否成功'])
         for row in rows:
             values=[str(row.get(k,'')) for k in ('ts','kind','text','detail','ok')]
+            if row.get('count',1)>1:values[3]='累计出现 '+str(row['count'])+' 次；最后出现：'+str(row.get('last_ts',''))+'\n'+values[3]
             # 在 Excel 中按文本处理，防止日志文本被当作公式。
             writer.writerow(["'"+v if v.lstrip().startswith(('=','+','-','@')) else v for v in values])
 
 def export_backup(cfg,path):
-    settings={k:copy.deepcopy(cfg.get(k)) for k in DEFAULT_SETTINGS if k not in ('queue','pending_timer','templates','automations','autostart')}
+    settings={k:copy.deepcopy(cfg.get(k)) for k in DEFAULT_SETTINGS if k not in ('queue','pending_timer','templates','automations','autostart','execution_journal')}
     data={'format':'haozai-backup','schema':1,'settings':settings,'templates':copy.deepcopy(cfg.get('templates') or []),
           'automations':copy.deepcopy(cfg.get('automations') or [])}
     for job in data['automations']:
         job['enabled']=False
-        for key in ('next_at','pending_missed','last_state','last_error','skip_date'):job.pop(key,None)
+        for key in ('next_at','pending_missed','last_state','last_error','skip_date','last_consumed_at'):job.pop(key,None)
     tmp=str(path)+'.tmp'
     with open(tmp,'w',encoding='utf-8') as f:json.dump(data,f,ensure_ascii=False,indent=2)
     os.replace(tmp,path)
@@ -150,7 +152,7 @@ def read_backup(path):
     if not isinstance(data,dict) or data.get('format')!='haozai-backup' or data.get('schema')!=1:raise ValueError('不支持的备份格式或版本')
     source=data.get('settings',{});settings={}
     if not isinstance(source,dict):raise ValueError('设置格式错误')
-    excluded={'queue','pending_timer','templates','automations','autostart'}
+    excluded={'queue','pending_timer','templates','automations','autostart','execution_journal'}
     for key,value in source.items():
         if key not in DEFAULT_SETTINGS or key in excluded:continue
         default=DEFAULT_SETTINGS[key]
@@ -171,7 +173,7 @@ def read_backup(path):
         if not isinstance(raw,list) or len(raw)>MAX_TASKS:raise ValueError('任务清单格式错误或超过200个')
         names=set()
         for task in raw:
-            task=normalize(task)
+            task=normalize(task);task.pop('occurrence_id',None);task.pop('source_automation',None)
             if not task['name'] or task['name'] in names:raise ValueError('任务名称为空或重复')
             names.add(task['name']);task['id']=uuid.uuid4().hex
             if key=='automations':
@@ -185,6 +187,7 @@ def read_backup(path):
     settings['float_enabled']=False
     settings['hotkeys_enabled']=False
     settings['keep_display_on']=False
+    settings['keep_awake_during_tasks']=False
     settings['quick_at_today']='22:00'
     settings['theme_mode']='light'
     settings['language']='CHS'

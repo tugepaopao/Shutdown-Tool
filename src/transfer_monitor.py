@@ -37,6 +37,8 @@ class QuietDetector:
         self.baseline=None;self.completed=False
     def update(self,sample,now):
         if now-self.started>=self.task['timeout_seconds']:return 'timeout'
+        if self.previous is not None and now-self.previous_time>max(10,self.task['idle_seconds']):
+            self.previous=None;self.seen=False;self.quiet_since=None;self.baseline=None;self.completed=False
         active=False
         if self.task['mode']=='download':
             state,temp=sample
@@ -62,16 +64,27 @@ class TransferWatcher:
         self.task=task;self.emit=emit;self.interval=interval;self.cancel=threading.Event()
         self.thread=threading.Thread(target=self.run,daemon=True,name='HaozaiziTransfer')
     def start(self):self.thread.start();return self
-    def stop(self):self.cancel.set()
+    def stop(self):
+        self.cancel.set()
+        subscription=getattr(self,'_subscription',None)
+        if subscription:subscription.close()
     def run(self):
         detector=QuietDetector(self.task)
+        from shared_sampling import hub
+        folder=os.path.normcase(os.path.abspath(self.task['folder'])) if self.task['mode']=='download' else None
+        key=('folder',folder) if folder else ('network',)
+        subscription=hub.subscribe(key,lambda:folder_sample(folder) if folder else network_sample(),self.interval)
+        self._subscription=subscription
+        last=None
         try:
             while not self.cancel.is_set():
-                sample=folder_sample(self.task['folder']) if self.task['mode']=='download' else network_sample()
-                state=detector.update(sample,time.monotonic())
+                result=subscription.read(self.cancel)
+                if result is None:return
+                sample,stamp=result
+                state=detector.update(sample,stamp)
                 if self.cancel.is_set():return
-                self.emit(state,'')
+                if state!=last:self.emit(state,'');last=state
                 if state in ('ready','timeout'):return
-                self.cancel.wait(self.interval)
         except Exception as exc:
             if not self.cancel.is_set():self.emit('error',str(exc))
+        finally:subscription.close()

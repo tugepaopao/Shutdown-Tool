@@ -11,6 +11,7 @@ from ui_dialog_palette import COLORS as C
 from ui_window import compact_show,prepare,show
 from ui_runtime_context import blossom
 from ui_soft_controls import SoftInput,SoftChoice,Segments,SoftToggle,SoftRadio
+from ui_date_picker import DateInput,pick_date
 
 class AdvancedLayout:
     def __init__(self,e,modes,title,parent):
@@ -48,7 +49,7 @@ class AdvancedLayout:
         current=e.original.get('mode','calendar' if self.advanced else 'countdown');e.mode.current(e.mode_keys.index(current) if current in e.mode_keys else 0)
         self.calendar=self.card();self.calendar.columnconfigure(1,weight=1);self.calendar.columnconfigure(0,minsize=self.p(106))
         self.heading=self.heading_label(self.calendar,'重复规则','calendar');self.heading.grid(row=0,column=0,sticky='nw',pady=(self.p(3),0))
-        self.heading.bind('<Button-1>',lambda ev:self.mode_menu());self.heading.config(cursor='hand2')
+        self.heading.bind('<Button-1>',lambda ev:self.mode_menu());self.heading.config(cursor='hand2',takefocus=True);self.heading.bind('<Return>',lambda ev:(self.mode_menu(),'break')[1]);self.heading.bind('<space>',lambda ev:(self.mode_menu(),'break')[1])
         from ui_settings_controls import Tooltip
         Tooltip(self.heading,'点击切换执行方式：预约、下载、网络或程序链');Tooltip(e.action,'选择操作；菜单底部可设置程序路径、消息内容和强制关闭选项')
         self.repeat_keys=('once','daily','weekly','custom');self.repeat_value=e.original.get('repeat','once')
@@ -70,7 +71,7 @@ class AdvancedLayout:
             if key=='end_date':
                 self.end_enabled=tk.BooleanVar(e,value=bool(e.original.get('end_date')))
                 SoftToggle(line,self.end_enabled,self.end_changed).pack(side='left',padx=(0,self.p(25)))
-            control=SoftInput(line,e.v[key],width=195 if key!='end_date' else 207,icon=icon,command=(lambda k=key:self.date_picker(e.v[k])) if icon=='calendar' else None)
+            control=DateInput(line,e.v[key],width=195 if key!='end_date' else 207,command=lambda k=key:self.date_picker(e.v[k])) if icon=='calendar' else SoftInput(line,e.v[key],width=195,icon=icon)
             control.pack(side='left');self.inputs[key]=control
         self.end_changed()
         self.exceptions=self.card();self.exceptions.columnconfigure(0,minsize=self.p(106));self.exceptions.columnconfigure(1,weight=1)
@@ -78,10 +79,10 @@ class AdvancedLayout:
         self.exception_dates=list(e.original.get('exception_dates',[]));self.chips=tk.Frame(self.exceptions,bg=C['card']);self.chips.grid(row=0,column=1,sticky='ew',pady=(self.p(12),0))
         self.lab(self.exceptions,'这些日期将跳过执行',muted=True).grid(row=1,column=1,sticky='w',pady=(self.p(7),self.p(2)));self.paint_dates()
         self.missed=self.card();self.policy=tk.StringVar(e,value=e.original.get('missed_policy','skip'))
-        mh=self.heading_label(self.missed,'错过执行处理','gear');mh.pack(side='left',padx=(0,self.p(18)));mh.config(cursor='hand2');mh.bind('<Button-1>',lambda ev:self.policy_menu(mh));Tooltip(mh,'点击查看全部错过处理策略')
+        mh=self.heading_label(self.missed,'错过执行处理','gear');mh.pack(side='left',padx=(0,self.p(18)));mh.config(cursor='hand2',takefocus=True);mh.bind('<Return>',lambda ev:(self.policy_menu(mh),'break')[1]);mh.bind('<space>',lambda ev:(self.policy_menu(mh),'break')[1]);mh.bind('<Button-1>',lambda ev:self.policy_menu(mh));Tooltip(mh,'点击查看全部错过处理策略')
         SoftRadio(self.missed,self.policy,'skip','跳过，不补执行').pack(side='left',padx=(0,self.p(4)))
-        self.ask_radio=SoftRadio(self.missed,self.policy,'ask','下次启动后询问')
-        self.run_radio=SoftRadio(self.missed,self.policy,'run','启动后执行一次')
+        self.ask_radio=SoftRadio(self.missed,self.policy,'ask','恢复后询问')
+        self.run_radio=SoftRadio(self.missed,self.policy,'run','恢复后执行一次')
         self.policy.trace_add('write',lambda *a:self.paint_policy());self.paint_policy()
         self.conditions=self.card();self.conditions.columnconfigure(1,weight=1);self.conditions.columnconfigure(0,minsize=self.p(106))
         self.condition_heading=self.heading_label(self.conditions,'执行方式','clock');self.condition_heading.grid(row=0,column=0,sticky='w')
@@ -127,45 +128,18 @@ class AdvancedLayout:
         for w in self.chips.winfo_children():w.destroy()
         for i,date in enumerate(self.exception_dates):
             b=flat_button(self.chips,date+'  ×',lambda d=date:self.remove_date(d),font=theme.font(delta=-1),padx=8,pady=6);b._selection_outline='#D8CDEF';b._bg='#E9E3FA';b.config(bg=b._bg);b.grid(row=i//3,column=i%3,sticky='ew',padx=(0,self.p(8)),pady=self.p(2))
-        i=len(self.exception_dates);b=flat_button(self.chips,'＋ 添加日期',self.add_date,font=theme.font(delta=-1),padx=8,pady=6);b._selection_outline='#B99BEF';b._dashed_outline=True;b.grid(row=i//3,column=i%3,sticky='ew',padx=(0,self.p(8)),pady=self.p(2))
+        i=len(self.exception_dates);b=flat_button(self.chips,'＋ 添加日期',self.add_date,font=theme.font(delta=-1),padx=8,pady=6);self.add_date_button=b;b._selection_outline='#B99BEF';b._dashed_outline=True;b.grid(row=i//3,column=i%3,sticky='ew',padx=(0,self.p(8)),pady=self.p(2))
         for col in range(3):self.chips.columnconfigure(col,weight=1,uniform='dates')
     def remove_date(self,date):self.exception_dates.remove(date);self.paint_dates()
     def add_date(self):
-        variable=tk.StringVar(self.e,value=self.e.v['date'].get());value=self.date_picker(variable)
+        variable=tk.StringVar(self.e,value=self.e.v['date'].get());value=self.date_picker(variable,anchor=self.add_date_button)
         if value and value not in self.exception_dates:
             if len(self.exception_dates)>=366:
                 from ui_localize import messagebox
                 messagebox.showerror('提示','例外日期最多366个',parent=self.e);return
             self.exception_dates.append(value);self.exception_dates.sort();self.paint_dates()
-    def date_picker(self,variable):
-        from ui_localize import messagebox
-        e=self.e;win=tk.Toplevel(e);prepare(win);win.app=e.app;win.T=e.T;win.title('选择日期');win.transient(e);win.config(bg=C['bg']);win.resizable(False,False);win.result=None
-        try:date=dt.date.fromisoformat(variable.get())
-        except ValueError:date=dt.date.today()
-        displayed=[date.year,date.month];v=tk.StringVar(win,value=date.isoformat())
-        area=CozyFrame(win,bg=C['card']);area.pack(fill='both',expand=True,padx=10,pady=10)
-        bar=tk.Frame(area,bg=C['card']);bar.pack(fill='x',padx=12,pady=8);heading=tk.Label(bar,bg=C['card'],fg=C['fg'],font=theme.font(bold=True));heading.pack(side='left',expand=True)
-        grid=tk.Frame(area,bg=C['card']);grid.pack(fill='both',expand=True,padx=10,pady=4)
-        def select(value):variable.set(value);win.result=value;win.destroy()
-        def redraw(delta=0):
-            month=displayed[0]*12+displayed[1]-1+delta;year,zero=divmod(month,12)
-            if not 1<=year<=9999:return
-            displayed[:]=[year,zero+1];heading.config(text=f'{year}年 {zero+1}月')
-            for w in grid.winfo_children():w.destroy()
-            for col,text in enumerate('一二三四五六日'):
-                grid.columnconfigure(col,weight=1,uniform='week');self.lab(grid,text).grid(row=0,column=col,pady=4)
-            for row,week in enumerate(calendar.monthcalendar(year,zero+1),1):
-                for col,day in enumerate(week):
-                    if day:flat_button(grid,str(day),lambda d=day:select(dt.date(displayed[0],displayed[1],d).isoformat()),font=theme.font(delta=-1),padx=2,pady=4).grid(row=row,column=col,sticky='ew',padx=2,pady=2)
-        flat_button(bar,'‹',lambda:redraw(-1),padx=8,pady=3).pack(side='left');flat_button(bar,'›',lambda:redraw(1),padx=8,pady=3).pack(side='left')
-        entry=SoftInput(area,v,placeholder='YYYY-MM-DD');entry.pack(fill='x',padx=12,pady=6)
-        def accept():
-            try:select(dt.date.fromisoformat(v.get()).isoformat())
-            except ValueError:messagebox.showerror('提示','日期格式应为 YYYY-MM-DD',parent=win)
-        flat_button(area,'确定',accept,kind='accent',pady=6).pack(fill='x',padx=12,pady=(0,10));redraw()
-        win.bind('<Escape>',lambda ev:win.destroy());e.app._apply_window_chrome(win);compact_show(win,e.app,height=350,width=290);win.grab_set();e.wait_window(win)
-        if e.winfo_exists():e.grab_set();e.focus_set()
-        return win.result
+    def date_picker(self,variable,**kwargs):
+        return pick_date(self.e,self.e.app,variable,**kwargs)
     def action_selected(self,event=None):
         from ui_tasks import ACTION_NAMES
         self.e.action_changed()
@@ -194,7 +168,7 @@ class AdvancedLayout:
     def policy_menu(self,anchor):
         from ui_popup_menu import VioletMenu
         menu=tk.Menu(self.e,tearoff=0)
-        for k,t in [('skip','跳过，不补执行'),('ask','下次启动后询问'),('run','启动后执行一次')]:menu.add_command(label=t,command=lambda k=k:self.policy.set(k))
+        for k,t in [('skip','跳过，不补执行'),('ask','恢复后询问'),('run','恢复后执行一次')]:menu.add_command(label=t,command=lambda k=k:self.policy.set(k))
         self.popup=VioletMenu(self.e.app,menu,anchor=anchor,icons=('clock',)*3)
     def paint_policy(self):
         self.ask_radio.pack_forget();self.run_radio.pack_forget()

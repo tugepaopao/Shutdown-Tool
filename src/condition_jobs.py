@@ -17,29 +17,45 @@ def user_idle_seconds():
     return ((tick-info.dwTime)&0xffffffff)/1000
 
 class CombinedWatcher:
-    def __init__(self,task,emit,network=network_sample,idle=user_idle_seconds,clock=time.monotonic,interval=2):
+    def __init__(self,task,emit,network=None,idle=user_idle_seconds,clock=time.monotonic,interval=2):
         self.task=task;self.emit=emit;self.network=network;self.idle=idle;self.clock=clock;self.interval=interval;self.cancel=threading.Event()
     def start(self):
         self.thread=threading.Thread(target=self.run,daemon=True,name='CombinedCondition');self.thread.start();return self
-    def stop(self):self.cancel.set()
+    def stop(self):
+        self.cancel.set()
+        subscription=getattr(self,'_subscription',None)
+        if subscription:subscription.close()
     def run(self):
         detector=QuietDetector(dict(self.task,mode='network'),self.clock());last=None
+        from shared_sampling import hub
+        subscription=hub.subscribe(('network',),network_sample,self.interval) if self.network is None else None
+        self._subscription=subscription
         try:
             while not self.cancel.is_set():
-                state=detector.update(self.network(),self.clock())
+                if subscription:
+                    result=subscription.read(self.cancel)
+                    if result is None:return
+                    sample,stamp=result
+                else:sample,stamp=self.network(),self.clock()
+                state=detector.update(sample,stamp)
                 if state=='ready' and self.idle()<self.task['user_idle_seconds']:state='waiting_user'
                 if self.cancel.is_set():return
                 if state!=last:self.emit(state,'');last=state
                 if state in ('ready','timeout'):return
-                self.cancel.wait(self.interval)
+                if subscription is None:self.cancel.wait(self.interval)
         except Exception as exc:
             if not self.cancel.is_set():self.emit('error',str(exc))
+        finally:
+            if subscription:subscription.close()
 
 class ChainWatcher:
     def __init__(self,task,emit):self.task=task;self.emit=emit;self.cancel=threading.Event();self.process=None
     def start(self):
         self.thread=threading.Thread(target=self.run,daemon=True,name='TaskChain');self.thread.start();return self
-    def stop(self):self.cancel.set()  # 不结束用户的备份程序；撤销后续动作。
+    def stop(self):
+        self.cancel.set()
+        subscription=getattr(self,'_subscription',None)
+        if subscription:subscription.close()  # 不结束用户的备份程序；撤销后续动作。
     def run(self):
         try:
             path=self.task['prepare_path']

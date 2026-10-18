@@ -1,12 +1,13 @@
 """Current styled input for the public edition's named templates."""
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from tkinter import ttk
 from ui_window import prepare,show,button_grid
 from theme import theme
 
 class TemplateNameDialog(tk.Toplevel):
     def __init__(self,parent,title,prompt,initialvalue='',**kw):
-        super().__init__(parent);prepare(self);self.result=None;self.parent=parent;self.previous_grab=parent.grab_current();self.title(title);self.transient(parent.winfo_toplevel());self.resizable(False,False)
+        super().__init__(parent);prepare(self);self.result=None;self.parent=parent;self.previous_grab=current_grab(parent);self.title(title);self.transient(parent.winfo_toplevel());self.resizable(False,False)
         owner=getattr(parent._root(),'_theme_owner',None);self.T=getattr(owner,'T',None)
         if self.T:
             from ui_localize import translate

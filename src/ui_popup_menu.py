@@ -1,6 +1,7 @@
 """Borderless violet popup with mouse, keyboard and outside-click dismissal."""
 import ctypes
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 import tkinter.font as tkfont
 from ctypes import wintypes as W
 from theme import theme,flat_button
@@ -10,7 +11,7 @@ from ui_window import _main_opacity,present_dialog
 
 class VioletMenu(tk.Toplevel):
     def __init__(self,app,menu,anchor=None,icons=None,title=None):
-        super().__init__(app.root);self.withdraw();self.app=app;self.menu=menu;self.closed=False;self._ready_for_dismiss=False;self.previous_grab=app.root.grab_current();self.buttons=[];self.items=[];self.active=-1
+        super().__init__(app.root);self.withdraw();self.app=app;self.menu=menu;self.closed=False;self._ready_for_dismiss=False;self.previous_grab=current_grab(app.root);self.buttons=[];self.items=[];self.active=-1
         self.overrideredirect(True);self.owner=(anchor or app.avatar_btn).winfo_toplevel();self.transient(self.owner);self.attributes('-toolwindow',True);self.attributes('-topmost',bool(app.root.attributes('-topmost')));self.configure(bg=COLORS['menu'],bd=0,highlightthickness=0);self._dialog_ready=False;self._dialog_presenting=False
         s=scale(self);inset=round(7*s);row_height=round(32*s)
         body=tk.Frame(self,bg=COLORS['menu']);body.pack(fill='both',expand=True,padx=inset,pady=inset)
@@ -31,6 +32,7 @@ class VioletMenu(tk.Toplevel):
         if y+height>bottom:y=max(top,button.winfo_rooty()-height-round(5*s))
         self.geometry(f'{width}x{height}+{x}+{y}')
         self.bind('<Map>',self._mapped,add='+');self.bind('<Escape>',lambda e:self.dismiss());self.bind('<Up>',lambda e:self.navigate(-1));self.bind('<Down>',lambda e:self.navigate(1));self.bind('<Home>',lambda e:self.highlight(0,True));self.bind('<End>',lambda e:self.highlight(len(self.buttons)-1,True));self.bind('<ButtonPress-1>',self._outside,add='+');self.bind('<FocusOut>',lambda e:app.root.after_idle(self._lost_focus),add='+')
+        self._move_binding=self.owner.bind('<Configure>',lambda e:self.dismiss() if e.widget is self.owner else None,add='+')
         self._dialog_ready=True;_main_opacity(self,0);self.deiconify();self.grab_set();self.focus_set()
     def _mapped(self,event):
         if event.widget is not self:return
@@ -61,7 +63,7 @@ class VioletMenu(tk.Toplevel):
         if not (self.winfo_rootx()<=event.x_root<self.winfo_rootx()+self.winfo_width() and self.winfo_rooty()<=event.y_root<self.winfo_rooty()+self.winfo_height()):self.dismiss();return 'break'
     def _lost_focus(self):
         if self.closed or not self._ready_for_dismiss:return
-        focus=self.focus_get()
+        focus=current_focus(self)
         if focus is None or focus.winfo_toplevel() is not self:self.dismiss()
     def select(self,index):
         menu=self.menu;root=self.app.root;self.dismiss(False)
@@ -72,6 +74,7 @@ class VioletMenu(tk.Toplevel):
     def dismiss(self,destroy_menu=True):
         if self.closed:return
         self.closed=True
+        if getattr(self,'_move_binding',None) and self.owner.winfo_exists():self.owner.unbind('<Configure>',self._move_binding)
         try:self.grab_release()
         except tk.TclError:pass
         self.destroy()

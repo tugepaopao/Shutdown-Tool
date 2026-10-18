@@ -1,5 +1,6 @@
 """Compact target picker: running window or exact exe path."""
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from tkinter import ttk,filedialog
 from ui_window import prepare,show,button_grid
 from ui_localize import messagebox
@@ -9,7 +10,7 @@ from program_control import running_programs,validate_target
 class CloseProgramDialog(tk.Toplevel):
     def __init__(self,app,parent=None,initial=None):
         super().__init__(parent or app.root);prepare(self)
-        self.app,self.T=app,app.T;self.result=None;self.previous_grab=app.root.grab_current()
+        self.app,self.T=app,app.T;self.result=None;self.previous_grab=current_grab(app.root)
         self.title(self.T('close_title'));self.transient(parent or app.root);self.configure(bg=theme.c('bg'));self.resizable(False,False)
         body=tk.Frame(self,bg=theme.c('bg'));body.pack(fill='both',expand=True,padx=14,pady=12)
         self.path=tk.StringVar(value=initial if initial is not None else app.cfg.get('close_program_path',''))

@@ -25,7 +25,7 @@ def recent_anomalies(rows,now=None):
     for r in reversed(rows):
         try:at=dt.datetime.fromisoformat(str(r.get('ts','')))
         except ValueError:continue
-        if at>=cutoff and (r.get('kind')=='error' or r.get('ok') is False or any(k in str(r.get('text','')) for k in ('错过','恢复','missed','recover'))):result.append(r)
+        if at>=cutoff and (r.get('kind') in ('error','ui_error','scheduler_error') or r.get('ok') is False or any(k in str(r.get('text','')) for k in ('错过','恢复','missed','recover'))):result.append(r)
     return result
 
 class DiagnosticsPanel:

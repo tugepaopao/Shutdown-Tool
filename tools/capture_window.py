@@ -8,6 +8,7 @@ def capture(window):
  u.GetAncestor.argtypes=[W.HWND,W.UINT];u.GetAncestor.restype=W.HWND
  h=u.GetAncestor(window.winfo_id(),2)
  u.GetWindowDC.argtypes=[W.HWND];u.GetWindowDC.restype=W.HDC
+ u.GetWindowRect.argtypes=[W.HWND,ctypes.POINTER(W.RECT)];u.GetWindowRect.restype=W.BOOL
  u.ReleaseDC.argtypes=[W.HWND,W.HDC]
  g.CreateCompatibleDC.argtypes=[W.HDC];g.CreateCompatibleDC.restype=W.HDC
  g.CreateCompatibleBitmap.argtypes=[W.HDC,ctypes.c_int,ctypes.c_int];g.CreateCompatibleBitmap.restype=W.HBITMAP

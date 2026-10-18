@@ -1,6 +1,7 @@
 """先完成布局和原生标题栏，再一次性显示；统一弹窗按钮网格。"""
 import ctypes
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 from theme import theme, flat_button
 
 
@@ -126,13 +127,29 @@ def present_main(window):
 
 def prepare(window, caption=True):
     window.withdraw()
+    def reveal_focus(event):
+        widget=event.widget
+        node=widget
+        try:
+            while node is not window and node is not None:
+                parent=node.master
+                if isinstance(parent,tk.Canvas):
+                    box=parent.bbox('all')
+                    if box and box[3]>parent.winfo_height():
+                        top=widget.winfo_rooty()-parent.winfo_rooty()
+                        if top<0 or top+widget.winfo_height()>parent.winfo_height():
+                            y=parent.canvasy(0)+top
+                            parent.yview_moveto(max(0,(y-8)/box[3]))
+                node=parent
+        except tk.TclError:pass
+    window.bind('<FocusIn>',reveal_focus,add='+')
     # Every nested dialog restores the previous live modal owner on destruction.
-    previous=window.grab_current();focus=window.focus_get()
+    previous=current_grab(window);focus=current_focus(window)
     status=previous.grab_status() if previous else None
     def restore_modal(event):
         if event.widget is not window:return
         try:
-            current=window.grab_current()
+            current=current_grab(window)
             if current is window:window.grab_release()
             if current is None or current is window:
                 if previous and previous.winfo_exists() and previous.winfo_viewable():
@@ -160,8 +177,6 @@ def prepare(window, caption=True):
                 if not window.winfo_exists():return
                 disable_native_animation(window)
                 owner._apply_dark_titlebar(window)
-                from ui_dialog_palette import apply
-                apply(window)
             window.after_idle(reapply)
     window.bind('<Map>',mapped,add='+')
 
@@ -199,7 +214,7 @@ def show(window):
         disable_native_animation(window)
         owner._apply_dark_titlebar(window)
     from ui_dialog_palette import apply
-    apply(window)
+    if not owner or not getattr(window,'_violet_dialog',False):apply(window)
     window._dialog_ready=True
     # Hide the already-created native wrapper before ShowWindow's first frame.
     # Map also repeats this when Tk recreates a transient wrapper.
@@ -232,18 +247,23 @@ def button_grid(parent,items,columns=None):
     return buttons
 
 
-def compact_show(window, app, height=520, width=None):
+def compact_show(window, app, height=520, width=None, anchor=None):
     """Opt-in auxiliary window bounds, matching settings without changing main UI."""
     from ui_cozy import scale
     from ui_floating import workareas, clamp_position
     from ctypes import wintypes as W
     s=scale(window);areas=workareas(window)
-    cx,cy=app.root.winfo_rootx(),app.root.winfo_rooty()
+    owner=anchor or window.master or app.root
+    cx,cy=owner.winfo_rootx(),owner.winfo_rooty()
     area=next((a for a in areas if a[0]<=cx<a[2] and a[1]<=cy<a[3]),areas[0])
     width=width or (640 if app.T.lang=='EN' else 560)
     size=(min(round(width*s),area[2]-area[0]-20),min(round(height*s),area[3]-area[1]-20))
     window._compact_size=size
     x,y=clamp_position(cx+25,cy+25,*size,areas)
+    if anchor:
+        from ui_anchor import bounds
+        x,y,w,h=bounds((anchor.winfo_rootx()+max(0,anchor.winfo_width()-round(34*getattr(anchor,'s',1))),anchor.winfo_rooty(),round(34*getattr(anchor,'s',1)),anchor.winfo_height()),*size,areas)
+        size=(w,h)
     window.geometry(f'{size[0]}x{size[1]}+{x}+{y}')
     window.minsize(*size)
     show(window);window.update_idletasks()
@@ -264,11 +284,10 @@ def wrap_to_width(label):
 
 def activate_dialog(window):
     """Reuse an existing dialog and respect any currently active modal editor."""
-    modal=window.grab_current()
+    modal=current_grab(window)
     target=modal.winfo_toplevel() if modal is not None and modal.winfo_exists() else window
-    show(target)
-    target.update_idletasks()
-    if getattr(target,'_violet_dialog',False):present_dialog(target)
+    if not target.winfo_viewable() or target.state()!='normal':show(target)
+    elif getattr(target,'_violet_dialog',False) and getattr(target,'_main_opacity',255)!=255:present_dialog(target)
     from ui_workspace import keep_visible
     keep_visible(target)
     target.lift()

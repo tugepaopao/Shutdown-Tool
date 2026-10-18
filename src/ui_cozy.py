@@ -2,6 +2,7 @@
 import ctypes
 import math
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 import tkinter.font as tkfont
 from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont, ImageTk, ImageColor
@@ -150,7 +151,7 @@ class CozyButton(tk.Button):
     def _paint(self):
         self._draw_job=None
         if not self.winfo_exists():return
-        focused=self.focus_get() is self and self._keyboard_focus
+        focused=current_focus(self) is self and self._keyboard_focus
         from theme import theme,blend
         stamp=(self.winfo_width(),self.winfo_height(),tuple((k,str(v)) for k,v in self._v.items()),self._state,self._hovering,self._pressed,focused,str(super().cget('font')),str(super().cget('background')),str(super().cget('foreground')),str(super().cget('activebackground')),str(super().cget('disabledforeground')),theme.accent,theme.c('shadow'))
         from ui_skin import renderer_for

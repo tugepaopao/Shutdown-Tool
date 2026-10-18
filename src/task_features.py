@@ -47,6 +47,9 @@ def refresh_queue(app):
     if app._queue_win and app._queue_win.winfo_exists():app._queue_win.refresh()
 
 def enqueue(app,task,start=False):
+    if task.get('occurrence_id'):
+        existing=next((t for t in app.task_queue if t.get('occurrence_id')==task['occurrence_id']),None)
+        if existing:return existing
     if len(app.task_queue)>=200:raise ValueError('队列已达200个上限')
     task=snapshot(task,app.cfg)
     if task['mode'] not in ('countdown','datetime','interval'):
@@ -77,6 +80,7 @@ def copy_queue(app,ids):
     if len(app.task_queue)+len(originals)>200:raise ValueError('队列已达200个上限')
     before=list(app.task_queue);last=app._next_task_id
     for task in originals:
+        task.pop('occurrence_id',None);task.pop('source_automation',None)
         task['id']=app._next_task_id;app._next_task_id+=1
         if task.get('name'):task['name']+=' 副本'
         app.task_queue.append(task)

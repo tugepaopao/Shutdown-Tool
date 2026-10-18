@@ -18,6 +18,8 @@ class Switch(tk.Canvas):
         self.command=command;self.variable=variable;self.checkbox=checkbox;self.disabled=False;self.s=scale(parent)
         super().__init__(parent,width=round((25 if checkbox else 89)*self.s),height=round(25*self.s),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
         self.trace=variable.trace_add('write',lambda *a:self.draw());self.bind('<Configure>',lambda e:self.draw());self.bind('<Button-1>',self.toggle);self.bind('<space>',self.toggle);self.bind('<Return>',self.toggle);self.bind('<Destroy>',self.dispose,add='+');self.draw()
+        from ui_soft_controls import keyboard_control
+        keyboard_control(self,self.toggle)
     def toggle(self,e=None):
         if not self.disabled:
             self.variable.set(not self.variable.get())

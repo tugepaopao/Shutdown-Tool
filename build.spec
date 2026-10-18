@@ -7,6 +7,8 @@ PyInstaller 打包配置 —— 豪崽子の自动关机工具
     .venv\\Scripts\\pyinstaller.exe --noconfirm --clean build.spec
 """
 
+import os
+DIRECTORY_BUILD = os.environ.get('SHUTDOWN_BUILD_LAYOUT') == 'onedir'
 block_cipher = None
 
 a = Analysis(
@@ -33,7 +35,7 @@ a = Analysis(
         'PIL.ImageTk',
         # v1.2.0：下面这几个是在函数内部延迟 import 的，显式写进来更保险
         'run_log',
-        'ui_queue', 'ui_task_center', 'ui_library_cards', 'ui_advanced_editor', 'ui_soft_controls', 'ui_diagnostics', 'automation_status',
+        'ui_queue', 'ui_task_center', 'ui_library_cards', 'ui_advanced_editor', 'ui_soft_controls', 'ui_date_picker', 'ui_diagnostics', 'automation_status',
         'ui_log',
         'ui_settings',
         'ui_dialogs', 'ui_reminder',
@@ -61,10 +63,11 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+    [] if DIRECTORY_BUILD else a.binaries,
+    [] if DIRECTORY_BUILD else a.zipfiles,
+    [] if DIRECTORY_BUILD else a.datas,
     [],
+    exclude_binaries=DIRECTORY_BUILD,
     name='定时关机工具',
     debug=False,
     bootloader_ignore_signals=False,
@@ -81,3 +84,6 @@ exe = EXE(
     icon='assets/icon.ico',
     version='installer/version_info.txt',
 )
+
+if DIRECTORY_BUILD:
+    bundle = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=False, name="定时关机工具")

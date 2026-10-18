@@ -124,5 +124,8 @@ class TrayIcon(object):
             if self.app.engine.is_running():
                 text=__import__('i18n').feature_text(self.app.T,'已暂停' if self.app.engine.paused else '剩余')+' '+format_remain(self.app.engine.remaining(),self.app.T)
             else:text=__import__('i18n').feature_text(self.app.T,'就绪')
-            self._icon.title=(self.app.T('app_name')+' · '+text)[:127]
-        except Exception:pass
+            title=(self.app.T('app_name')+' · '+text)[:127]
+            if title!=getattr(self,'_last_title',None):self._icon.title=title;self._last_title=title
+            __import__('run_log').recovered('tray-native')
+        except Exception as exc:
+            if self.app.cfg.get('log_enabled',True):__import__('run_log').exception('tray-native','界面刷新异常：系统托盘',exc,'ui_error')

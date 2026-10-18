@@ -1,5 +1,6 @@
 """Peer workspace windows; modal dialogs retain their own owner and grab."""
 import tkinter as tk
+from ui_focus import current_grab, current_focus
 
 
 def windows(app):
@@ -11,7 +12,7 @@ def windows(app):
 
 
 def active_modal(root):
-    modal=root.grab_current()
+    modal=current_grab(root)
     if modal is not None and modal.winfo_exists():
         from ui_window import activate_dialog
         return activate_dialog(modal.winfo_toplevel())

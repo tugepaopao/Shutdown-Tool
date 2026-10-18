@@ -14,3 +14,7 @@ settings-corrupt*
 auto_backups/
 tools/*results.json
 tools/shots/
+
+installed_v*/
+docs/LOCAL-*.md
+installed/

@@ -41,7 +41,9 @@ for policy in ('skip','ask','run'):
     check(policy+' missed never directly executes',not sent)
     if policy!='skip':
         check(policy+' pending saved',bool(c.app.cfg['automations'][0].get('pending_missed')))
-        c._resolve_pending();check(policy+' waits for reopening',not sent and 'pending_missed' in t)
+        c.app.root.grab_current=lambda:object()
+        c._resolve_pending();check(policy+' recovery waits for modal to close',not sent and 'pending_missed' in t)
+        c.app.root.grab_current=lambda:None
         c.resolve_missed('t',True,dt.datetime(2026,10,23,18));c.resolve_missed('t',True)
         check(policy+' coalesces to one cancellable run',len(sent)==1 and sent[0]['seconds']==10 and sent[0]['source_automation']=='t')
     else:check('skip advances without catchup',t['next_at']=='2026-10-26T14:30:00')
@@ -73,6 +75,14 @@ for policy in ('skip','ask','run'):
 t=normalize(dict(name='modal',mode='calendar',action='message',at=(dt.datetime.now()-dt.timedelta(days=1)).isoformat(),repeat='once',missed_policy='run'))
 t.update(id='t',enabled=False,pending_missed=t['at']);c,sent=controller(t);c._startup_pending={'t'};c.app.root.grab_current=lambda:object();c._resolve_pending()
 check('recovery waits for an open editor',not sent and t.get('pending_missed'))
+t0=job();t0.update(id='idle',enabled=False);c0,sent0=controller(t0)
+c0.app.root.grab_current=lambda:(_ for _ in ()).throw(KeyError('popdown'))
+c0._resolve_pending();check('no pending recovery never resolves a native dropdown',not sent0)
+class NativeGrab:
+    def call(self,*args):return '.!combobox.popdown'
+c.app.root.tk=NativeGrab();c.app.root._w='.';c._resolve_pending()
+check('native combobox dropdown pauses recovery without error',not sent and t.get('pending_missed'))
+del c.app.root.tk;del c.app.root._w
 t['missed_policy']='ask';c.app.root.grab_current=lambda:None;callbacks=[];c.app.root.after_idle=callbacks.append
 c._resolve_pending();check('confirmation scheduled without blocking scheduler',len(callbacks)==1 and not sent)
 with patch.object(messagebox,'askyesno',return_value=False):callbacks[0]()
