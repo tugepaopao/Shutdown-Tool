@@ -10,7 +10,7 @@ def keyboard_control(widget,activate):
     def paint():
         original()
         from ui_focus import current_focus
-        if current_focus(widget) is widget:
+        if current_focus(widget) is widget and getattr(widget,'show_focus_ring',True):
             widget.create_rectangle(2,2,max(3,widget.winfo_width()-3),max(3,widget.winfo_height()-3),outline=theme.accent,dash=(2,2),tags='focus-ring')
     widget.draw=paint
     widget.bind('<FocusIn>',lambda e:widget.draw(),add='+');widget.bind('<FocusOut>',lambda e:widget.draw(),add='+')

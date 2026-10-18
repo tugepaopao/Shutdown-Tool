@@ -192,6 +192,7 @@ class CozyButton(tk.Button):
             im=skin
             radius=max(9,int(12*scale(self)))
             if getattr(self,'_kind','normal')=='accent':im=tint(im,bg,1,radius,theme.accent if focused else None)
+            elif hasattr(self,'_skin_opacity'):im=tint(im,bg,self._skin_opacity,radius,theme.accent if focused else theme.c('card_border') if getattr(self,'_skin_border',False) else None)
             elif self._hovering or self._pressed or focused:im=tint(im,bg,.24,radius,theme.accent if focused else None)
             elif bg not in (theme.c('bg'),theme.c('card')):im=tint(im,bg,.20,radius)
         # A restrained vertical highlight, clipped inside the rounded fill.

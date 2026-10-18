@@ -10,10 +10,10 @@ from ui_dialog_palette import COLORS
 from ui_window import _main_opacity,present_dialog
 
 class VioletMenu(tk.Toplevel):
-    def __init__(self,app,menu,anchor=None,icons=None,title=None):
+    def __init__(self,app,menu,anchor=None,icons=None,title=None,compact=False):
         super().__init__(app.root);self.withdraw();self.app=app;self.menu=menu;self.closed=False;self._ready_for_dismiss=False;self.previous_grab=current_grab(app.root);self.buttons=[];self.items=[];self.active=-1
         self.overrideredirect(True);self.owner=(anchor or app.avatar_btn).winfo_toplevel();self.transient(self.owner);self.attributes('-toolwindow',True);self.attributes('-topmost',bool(app.root.attributes('-topmost')));self.configure(bg=COLORS['menu'],bd=0,highlightthickness=0);self._dialog_ready=False;self._dialog_presenting=False
-        s=scale(self);inset=round(7*s);row_height=round(32*s)
+        s=scale(self);inset=round((4 if compact else 7)*s);row_height=round((27 if compact else 32)*s)
         body=tk.Frame(self,bg=COLORS['menu']);body.pack(fill='both',expand=True,padx=inset,pady=inset)
         if title:tk.Label(body,text=title,bg=COLORS['menu'],fg=COLORS['fg'],font=theme.font(delta=-2,bold=True),anchor='w').pack(fill='x',padx=round(8*s),pady=(2,round(5*s)))
         icons=icons or ('gear','parameters','enqueue','clock','power_badge');icon_index=0;longest=0;font=tkfont.Font(root=self,font=theme.font())
@@ -21,14 +21,15 @@ class VioletMenu(tk.Toplevel):
             if menu.type(index)=='separator':
                 tk.Frame(body,bg=COLORS['border'],height=1).pack(fill='x',padx=round(9*s),pady=round(5*s));continue
             label=menu.entrycget(index,'label').strip();longest=max(longest,font.measure(label));slot=tk.Frame(body,bg=COLORS['menu'],height=row_height);slot.pack(fill='x',pady=1);slot.pack_propagate(False)
-            b=flat_button(slot,label,lambda i=index:self.select(i),kind='normal',padx=round(9*s),pady=3);b._bg=COLORS['menu'];b._hover=COLORS['hover'];b._fg=COLORS['fg'];b.configure(bg=b._bg,activebackground=b._hover,fg=b._fg,anchor='w',compound='left',image=menu_icon(self,icons[icon_index],round(17*s)))
+            b=flat_button(slot,label,lambda i=index:self.select(i),kind='normal',padx=round(9*s),pady=3);b._bg=COLORS['menu'];b._hover=COLORS['hover'];b._fg=COLORS['fg'];b.configure(bg=b._bg,activebackground=b._hover,fg=b._fg,anchor='w',compound='left',image=menu_icon(self,icons[icon_index] if icon_index<len(icons) else 'document',round(17*s)))
+            if compact:b.config(image='',anchor='center',font=theme.font(delta=-1))
             b._theme_photo=b.cget('image');b.pack(fill='both',expand=True);self.buttons.append(b);self.items.append(index);icon_index+=1
             if menu.entrycget(index,'state')=='disabled':b.configure(state='disabled')
             b.bind('<Enter>',lambda e,k=len(self.buttons)-1:self.highlight(k),add='+')
-        self.update_idletasks();width=max(round(180*s),longest+round(58*s));height=self.winfo_reqheight();button=anchor or app.avatar_btn
+        self.update_idletasks();width=max(round((96 if compact else 180)*s),longest+round((24 if compact else 58)*s));height=self.winfo_reqheight();button=anchor or app.avatar_btn
         from ui_floating import workareas
         cx=button.winfo_rootx();cy=button.winfo_rooty();left,top,right,bottom=min(workareas(app.root),key=lambda a:max(a[0]-cx,0,cx-a[2])**2+max(a[1]-cy,0,cy-a[3])**2)
-        x=max(left,min(right-width,button.winfo_rootx()+button.winfo_width()-width));y=button.winfo_rooty()+button.winfo_height()+round(5*s)
+        x=max(left,min(right-width,button.winfo_rootx()+(button.winfo_width()-width)//2 if compact else button.winfo_rootx()+button.winfo_width()-width));y=button.winfo_rooty()+button.winfo_height()+round(5*s)
         if y+height>bottom:y=max(top,button.winfo_rooty()-height-round(5*s))
         self.geometry(f'{width}x{height}+{x}+{y}')
         self.bind('<Map>',self._mapped,add='+');self.bind('<Escape>',lambda e:self.dismiss());self.bind('<Up>',lambda e:self.navigate(-1));self.bind('<Down>',lambda e:self.navigate(1));self.bind('<Home>',lambda e:self.highlight(0,True));self.bind('<End>',lambda e:self.highlight(len(self.buttons)-1,True));self.bind('<ButtonPress-1>',self._outside,add='+');self.bind('<FocusOut>',lambda e:app.root.after_idle(self._lost_focus),add='+')

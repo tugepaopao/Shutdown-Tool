@@ -31,6 +31,9 @@ def set_icon(app,widget,name,size):
             halo=Image.new('RGBA',original.size,'#444066');halo.putalpha(original.getchannel('A').filter(ImageFilter.MaxFilter(3)).point(lambda x:round(x*.6)))
             cache[key]=ImageTk.PhotoImage(Image.alpha_composite(halo,original),master=app.root)
         widget._theme_photo=cache[key]
+    elif getattr(widget,'_soft_primary',False):
+        from ui_cozy import cozy_icon,scale
+        widget._theme_photo=cozy_icon(app.root,name,round(size*scale(app.root)),ink=theme.accent)
     else:widget._theme_photo=icon(app,name,size)
     widget.config(image=widget._theme_photo)
 
@@ -38,6 +41,9 @@ def refresh_icons(app):
     from ui_transition import walk
     for widget in walk(app.root):
         if hasattr(widget,'_theme_icon'):set_icon(app,widget,*widget._theme_icon)
+    paint_modes(app)
+    for fields in getattr(app,'time_inputs',{}).values():
+        for field in fields:field.draw()
 
 
 def heading(app, parent, step, text, settings=False):
@@ -126,26 +132,30 @@ def build_timer(app, parent):
     for c in box.winfo_children():
         if c is not inner:c.pack_forget()
     box.config(highlightthickness=0,bg=theme.c('card'))
-    inner.pack_configure(padx=10,pady=(0,10))
+    inner.pack_configure(padx=8,pady=(0,10))
     inner.config(bg=theme.c('card'))
     panel=app.timer_panel; panel.config(bg=theme.c('card'))
     gp=app.preset_row.master
     gp.config(text='',highlightthickness=0,font=theme.font(bold=True),bg=theme.c('card'),fg=theme.c('fg_dim'))
-    gp.pack_configure(pady=(0,8))
+    gp.pack_configure(pady=(2,8))
+    app.time_content_anchor=gp
+    app.mode_bar.pack_configure(before=gp)
     from ui_skin import QuickHeading
     app.quick_heading=QuickHeading(gp,app);app.quick_heading.pack(fill='x',padx=4,pady=(2,2),before=app.preset_row)
     app.preset_row.config(bg=theme.c('card'));app.preset_row.pack_configure(padx=0,pady=(3,0))
-    names=['clock','clock','clock','sun','moon','sliders']
+    names=['clock']*6
     for b in app.preset_btns.values():b.destroy()
     app.preset_btns={}
     for i,(key,spec) in enumerate(QUICK_PRESETS):
         tile=tk.Frame(app.preset_row,bg=theme.c('card'),highlightthickness=0,
                       highlightbackground=theme.c('card_border'))
         tile.grid(row=i//3,column=i%3,sticky='ew',padx=(0 if i%3==0 else 6,0),pady=(0 if i<3 else 5,0))
-        b=flat_button(tile,app.T(key),lambda index=i:app.apply_preset(__import__('quick_presets').spec(__import__('quick_presets').get(app.cfg)[index])),kind='normal',font=theme.font(),padx=2,pady=3)
-        b.config(image=icon(app,names[i],20),compound='top',pady=3,
+        b=flat_button(tile,app.T(key),lambda index=i:app.apply_preset(__import__('quick_presets').spec(__import__('quick_presets').get(app.cfg)[index])),kind='normal',font=theme.font(delta=-1),padx=2,pady=5)
+        b.config(image=icon(app,names[i],20),compound='left',pady=5,
                  highlightthickness=0,highlightbackground=theme.c('card_border'))
-        set_icon(app,b,names[i],20)
+        set_icon(app,b,names[i],17)
+        b._skin_opacity=0
+        b._skin_border=False
         b.pack(fill='both',expand=True,padx=0,pady=0);app.preset_btns[key]=b
     app._refresh_preset_labels()
     # 隐藏重复的「执行方式」标题，保留三个常显页签。
@@ -155,25 +165,69 @@ def build_timer(app, parent):
     app.mode_btn_row.pack_configure(pady=0)
     app.mode_indicators={}
     for col,(mode,b) in enumerate(app.mode_btns.items()):
-        b.config(font=theme.font(delta=-1),pady=5)
+        b.config(font=theme.font(delta=-1),pady=6,compound='left')
+        set_icon(app,b,'clock',17)
+        b._skin_opacity=0
         b.grid_configure(padx=0)
         line=tk.Frame(app.mode_btn_row,height=2,bg=theme.c('card_border'))
-        line.grid(row=1,column=col,sticky='ew');app.mode_indicators[mode]=line
-    for group in app.time_groups.values():
+        app.mode_indicators[mode]=line
+    app.time_inputs={}
+    from ui_main_time import NumberInput, WeekdayInput
+    for mode,group in app.time_groups.items():
         group.config(highlightthickness=0)
         for c in group.winfo_children():
             if isinstance(c,tk.Label):c.pack_forget()
             else:
-                c.pack_configure(padx=12,pady=(8,10))
+                c.pack_configure(padx=8,pady=(8,10))
                 cols=max(int(w.grid_info().get('column',0)) for w in c.winfo_children())+1
-                for col in range(cols):c.columnconfigure(col,weight=1,uniform='time')
-                for w in c.winfo_children():w.grid_configure(sticky='ew',padx=6)
-    app.btn_enqueue.destroy()  # 正式入口移到底部，与立即执行并列。
-    for b,name in zip((app.btn_start,app.btn_pause,app.btn_stop,app.btn_clear),('play','pause','stop','clear')):
-        b.config(image=icon(app,name,16),compound='left',font=theme.font(delta=-1),pady=6,padx=4)
+                for col in range(cols):
+                    # The weekday needs three large glyphs; do not multiply its width
+                    # across all four columns. Numeric columns share remaining space.
+                    c.columnconfigure(col,weight=0 if mode=='datetime' and col==0 else 1,uniform='' if mode=='datetime' and col==0 else 'time_'+mode)
+                fields=[]
+                for w in list(c.winfo_children()):
+                    w.grid_configure(sticky='ew',padx=4)
+                    if isinstance(w,tk.Label):w.configure(anchor='center')
+                    elif w is app.weekday_box:
+                        info=w.grid_info();values=list(w.cget('values'));index=w.current();w.destroy()
+                        field=WeekdayInput(c,app,values,app.weekday_var);field.current(index)
+                        field.grid(**{k:v for k,v in info.items() if k!='in'});app.weekday_box=field;fields.append(field)
+                    elif isinstance(w,ttk.Spinbox) or (isinstance(w,ttk.Combobox) and str(w.cget('textvariable'))==str(app.cd_days)):
+                        info=w.grid_info();variable=next(v for v in (app.cd_days,app.cd_h,app.cd_m,app.cd_s,app.dt_h,app.dt_m,app.dt_s,app.iv_h,app.iv_m,app.iv_s) if str(v)==str(w.cget('textvariable')))
+                        maximum=int(float(w.cget('to'))) if isinstance(w,ttk.Spinbox) else 60
+                        w.destroy();field=NumberInput(c,variable,maximum)
+                        field.grid(**{k:v for k,v in info.items() if k!='in'});fields.append(field)
+                app.time_inputs[mode]=fields
+    # Keep all three input surfaces mapped and prepainted in a fixed-height stack.
+    # Switching only raises a surface; no pack/unpack or delayed blank background.
+    app.root.update_idletasks()
+    groups=list(app.time_groups.values())
+    height=max(g.winfo_reqheight() for g in groups)
+    app.time_stack=tk.Frame(panel,bg=theme.c('card'),height=height)
+    app.time_stack.pack(fill='x',before=gp,pady=(0,4))
+    app.time_stack.grid_propagate(False)
+    app.time_stack.columnconfigure(0,weight=1);app.time_stack.rowconfigure(0,weight=1)
+    for group in groups:
+        group.pack_forget();group.grid(in_=app.time_stack,row=0,column=0,sticky='nsew')
+    app.time_stack.configure(width=max(g.winfo_reqwidth() for g in groups))
+    # A full-width primary action, with four equal secondary actions below.
+    app.btn_clear.grid_forget()
+    app.btn_start.grid_configure(row=0,column=0,columnspan=4,padx=0,pady=(0,5))
+    app.btn_start._soft_primary=False
+    app.btn_start._kind='accent'
+    app.btn_start._skin_opacity=.85
+    app.btn_start._bg=theme.accent;app.btn_start._fg=theme.c('accent_fg')
+    app.btn_start.config(bg=theme.accent,fg=theme.c('accent_fg'),image=icon(app,'play',19),compound='left',font=theme.font(delta=2,bold=True),pady=7)
+    set_icon(app,app.btn_start,'play',19)
+    app.btn_now=flat_button(app.time_btn_row,app.T('btn_now'),app.perform_now,kind='normal',font=theme.font(delta=-2),padx=2,pady=5)
+    for col,(button,name) in enumerate(((app.btn_enqueue,'enqueue'),(app.btn_pause,'pause'),(app.btn_stop,'stop'),(app.btn_now,'bolt'))):
+        button.grid(row=1,column=col,columnspan=1,sticky='ew',padx=(0 if col==0 else 5,0),pady=0)
+        button._skin_opacity=0
+        button.config(image=icon(app,name,16),compound='left',font=theme.font(delta=-2),pady=5,padx=2)
+        set_icon(app,button,name,16)
+    app.btn_enqueue.config(text='加入队列')
+    app.btn_now.config(text='立即执行')
     app.time_btn_row.config(bg=theme.c('card'))
-    for b in (app.btn_pause,app.btn_stop,app.btn_clear):
-        b._kind='ghost';b._bg=theme.c('card');b.config(bg=theme.c('card'),activebackground=theme.c('hover'))
     app.time_spacer.pack_forget()
     app._refresh_mode_btns();app._refresh_time_groups()
 
@@ -181,7 +235,11 @@ def build_timer(app, parent):
 def paint_modes(app):
     for mode,b in getattr(app,'mode_btns',{}).items():
         selected=mode==app.mode_var.get()
-        bg=theme.c('sel_row_bg' if selected else 'bg'); fg=theme.accent if selected else theme.c('fg')
+        bg=theme.c('card'); fg=theme.accent if selected else theme.c('fg')
+        b._kind='plain'
+        from ui_cozy import cozy_icon,scale
+        b._theme_photo=cozy_icon(app.root,'clock',round(17*scale(app.root)),ink=fg)
+        b.config(image=b._theme_photo)
         b.config(bg=bg,fg=fg,highlightbackground=theme.c('card_border'))
         b._bg=bg;b._fg=fg;b._border=theme.c('card_border')
         if mode in getattr(app,'mode_indicators',{}):
@@ -189,23 +247,6 @@ def paint_modes(app):
 
 
 def build_footer(app,parent):
-    app.now_box=tk.Frame(parent,bg=theme.c('bg'))
-    app.now_box.pack(fill='x',pady=(8,4))
-    for col in (0,1):app.now_box.columnconfigure(col,weight=1,uniform='footer')
-    for col,(attr,text,command,name) in enumerate((
-        ('btn_enqueue','btn_enqueue',app.enqueue_current,'enqueue'),
-        ('btn_now','btn_now',app.perform_now,'bolt'))):
-        tile=tk.Frame(app.now_box,bg=theme.c('bg'),highlightthickness=0,highlightbackground=theme.c('card_border'))
-        tile.grid(row=0,column=col,sticky='ew',padx=(0,4) if col==0 else (4,0))
-        b=flat_button(tile,app.T(text),command,kind='plain',font=theme.font(delta=-2),padx=4,pady=6)
-        b.config(image=icon(app,name,17),compound='left',highlightthickness=0,
-                 highlightbackground=theme.c('card_border'))
-        set_icon(app,b,name,17)
-        if attr=='btn_enqueue':
-            app.queue_badge=flat_button(tile,'0',app.open_queue,kind='ghost',font=theme.font(delta=-2),padx=3,pady=5)
-            app.queue_badge.pack(side='right')
-            b.config(text=__import__('i18n').feature_text(app.T,'加入队列'))
-        b.pack(fill='both',expand=True);setattr(app,attr,b)
     from ui_summary import build
     build(app,parent)
 
@@ -218,7 +259,7 @@ def measure(app):
     from ui_main import ACTION_ROWS
     from ui_cozy import scale
     font=tkfont.Font(root=app.root,font=theme.font())
-    widest=max(font.measure(Texts(lang)(key)) for lang in ('CHS','CHT','EN') for _,key,_ in ACTION_ROWS)
+    widest=max(font.measure(Texts(lang)(key)) for lang in ('CHS',) for _,key,_ in ACTION_ROWS)
     width=max(width,2*(widest+round(105*scale(app.root)))+24)
     for mode in MODE_KEYS:
         app.mode_var.set(mode);app._refresh_time_groups();app.root.update_idletasks()
@@ -226,13 +267,14 @@ def measure(app):
         height=max(height,app.content_area.winfo_reqheight())
     app.mode_var.set(original);app._refresh_time_groups();app._refresh_mode_btns()
     app.root.update_idletasks()
-    return max(round(472*scale(app.root)),max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root))),app.root.winfo_reqheight()
+    return max(round(456*scale(app.root)),max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root))),app.root.winfo_reqheight()
 
 
 def build_ui(app):
     from ui_titlebar import build
     build(app)
-    app.container=tk.Frame(app.root,bg=theme.c('bg'));app.container.pack(fill='both',padx=12,pady=(6,8))
+    app.container=tk.Frame(app.root,bg=theme.c('bg'));app.container.pack(fill='both',padx=8,pady=(6,8))
+    app.time_stack=None
     app.time_groups={};app.nav_btns={};app.mode_indicators={}
     app.mode_var=tk.StringVar(value=app.cfg.get('mode') or 'countdown')
     app.mid=tk.Frame(app.container,bg=theme.c('bg'));app.mid.pack(fill='x')

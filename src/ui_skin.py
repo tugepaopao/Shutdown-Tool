@@ -211,6 +211,11 @@ class SkinRenderer:
     if getattr(widget,'_skin_generation',None)!=(self.generation,self.box(widget)):widget._skin_generation=(self.generation,self.box(widget));widget._last_paint=None;widget._schedule()
   self.canvas_backgrounds()
   if hasattr(self.app,'quick_heading'):self.app.quick_heading.draw()
+  for fields in getattr(self.app,'time_inputs',{}).values():
+   for field in fields:
+    stamp=(self.generation,self.box(field))
+    if field.winfo_ismapped() and getattr(field,'_main_surface_stamp',None)!=stamp:
+     field._main_surface_stamp=stamp;field.draw()
  def _paint_text(self,widget,record):
   if widget.winfo_width()<2 or widget.winfo_height()<2:return
   v=record['virtual'];get=record['get'];box=self.box(widget)

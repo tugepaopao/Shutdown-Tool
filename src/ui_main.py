@@ -423,6 +423,7 @@ class App(object):
         menu.add_command(label="  " + T("menu_params"), command=self.open_params)
         menu.add_command(label="  " + T("menu_queue"), command=self.open_queue)
         menu.add_command(label="  " + T("menu_log"), command=self.open_log)
+        menu.add_command(label="  清除时间设置", command=self.clear_timer)
         menu.add_separator()
         menu.add_command(label="  " + T("menu_about"), command=self.open_about)
         return menu
@@ -431,7 +432,7 @@ class App(object):
         from ui_popup_menu import VioletMenu
         popup=getattr(self,'_avatar_popup',None)
         if popup and popup.winfo_exists():popup.dismiss()
-        menu=self._build_avatar_menu();self._avatar_popup=VioletMenu(self,menu)
+        menu=self._build_avatar_menu();self._avatar_popup=VioletMenu(self,menu,icons=('gear','parameters','enqueue','clock','clear','power_badge'))
         return menu
 
     # ------------------------------------------------------------ 侧边导航
@@ -492,6 +493,10 @@ class App(object):
 
 
     def _focus_first_time_widget(self):
+        fields = getattr(self, "time_inputs", {}).get(self.mode_var.get(), [])
+        if fields:
+            fields[0].focus_set()
+            return
         try:
             w = self.timer_panel.winfo_children()
             for c in w:
@@ -636,10 +641,7 @@ class App(object):
             pass
         self._refresh_mode_btns()
         self._refresh_time_groups()
-        try:
-            self.root.after(20, lambda: self._focus_first_time_widget())
-        except Exception:
-            pass
+        # Keep focus on the clicked mode; select a time field only on explicit input.
 
     def _refresh_mode_btns(self):
         import ui_compact
@@ -663,9 +665,14 @@ class App(object):
         if not getattr(self, "time_groups", None):
             return
         cur = self.mode_var.get()
+        if getattr(self,'time_stack',None) is not None:
+            self.time_groups[cur].tkraise()
+            for mode,fields in getattr(self,'time_inputs',{}).items():
+                for field in fields:field.configure(takefocus=mode==cur)
+            return
         # 锚点用按钮排：时间板块统一 pack 到它之前，
-        # 于是顺序恒为「快捷预设 → 模式入口 → 展开的板块 → 按钮排 → spacer」。
-        anchor = getattr(self, "time_btn_row", None)
+        # 主线顺序为「模式入口 → 时间输入 → 快捷预设 → 按钮排」。
+        anchor = getattr(self, "time_content_anchor", None) or getattr(self, "time_btn_row", None)
         for mode, frame in self.time_groups.items():
             try:
                 if mode == cur:

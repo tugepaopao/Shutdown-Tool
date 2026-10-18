@@ -34,7 +34,7 @@ def paint(app):
         cache[key]=ImageTk.PhotoImage(blossom(32,percent,running),master=app.root)
     ring=app.summary_ring;ring.delete('progress_flower');ring.create_image(0,0,image=cache[key],anchor='nw',tags='progress_flower');ring._flower_photo=cache[key]
     if hasattr(app,'queue_badge'):
-        lang=app.T.lang;count=len(app.task_queue);app.queue_badge.config(text=feature_text(app.T,'队列')+' '+str(count)+('' if lang=='EN' else ' 項' if lang=='CHT' else ' 项'))
+        lang=app.T.lang;count=len(app.task_queue);app.queue_badge.config(text='')
         app.btn_enqueue.config(text=feature_text(app.T,'加入队列'))
     app.summary_title._draft_changed=edited(app)
 
@@ -51,8 +51,7 @@ def install(app):
     for w in (app.sbar,app.summary_title,app.status,app.summary_ring):w.bind('<Button-3>',lambda e:more(app,e),add='+')
     app.summary_title.bind('<Shift-F10>',lambda e:more(app,e),add='+')
     Tooltip(app.summary_title,lambda:feature_text(app.T,'上方修改的是下次设定，当前任务保持不变。') if edited(app) else feature_text(app.T,'右键可延后任务或查看队列。'))
-    Tooltip(app.queue_badge,lambda:feature_text(app.T,'打开任务中心'))
-    for attr,content in [('pin_btn','置顶主窗口'),('avatar_btn','程序设置'),('minimize_btn','最小化到任务栏'),('close_btn','关闭主窗口'),('summary_stop','停止当前任务'),('summary_pause','暂停／继续当前任务')]:
+    for attr,content in [('summary_stop','停止当前任务'),('summary_pause','暂停／继续当前任务')]:
         Tooltip(getattr(app,attr),lambda value=content:feature_text(app.T,value))
     for action,b in app.action_more.items():
         key={'message':'message_text','run_program':'program_path','close_program':'close_program_path','play_sound':'sound_file'}[action]

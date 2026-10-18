@@ -29,8 +29,9 @@ def build(app):
     def paint_pin():
         if not app.pin_btn.winfo_exists():return
         enabled=bool(root.attributes('-topmost'));app.pin_btn._kind='ghost';app.pin_btn._bg=theme.c('bg');app.pin_btn.config(bg=app.pin_btn._bg)
-    for attr,name,command in [('close_btn','close',app.on_close),('minimize_btn','minimize',root.iconify),('avatar_btn','gear',app._open_avatar_menu),('pin_btn','pin',toggle_pin)]:
+    for attr,name,command in [('close_btn','close',app.on_close),('minimize_btn','minimize',root.iconify),('avatar_btn','gear',app._open_avatar_menu),('task_center_btn','document',app.open_queue),('pin_btn','pin',toggle_pin)]:
         b=flat_button(bar,'',command,kind='ghost',padx=4,pady=5);b._title_control=True;b._bare_glyph=True;b._theme_icon=(name,17);b._theme_photo=cozy_icon(root,name,round(17*s));b.config(image=b._theme_photo);b.pack(side='right',padx=2);setattr(app,attr,b)
+    app.queue_badge=app.task_center_btn
     root.attributes('-topmost',bool(app.cfg.get('main_topmost',False)));paint_pin()
     app._paint_pin=paint_pin
     # Coalesce pointer input and move the existing HWND. The opaque surface
