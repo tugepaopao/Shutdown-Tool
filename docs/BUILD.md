@@ -1,4 +1,4 @@
-# v2.0.18 源码运行与构建
+# v2.0.20 源码运行与构建
 
 需要 Windows 10/11 x64、带 Tcl/Tk 的 Python 3.12 x64。正式运行时为 Python 3.12.14，依赖固定于 requirements.txt。安装包另需 Inno Setup 6.5+。
 
@@ -12,7 +12,7 @@ py -3.12 -m venv .venv
 
 ## 便携版和安装版
 
-运行 `build.bat` 可生成两种 EXE 并编译安装包。单文件便携版位于 `dist/定时关机工具.exe`；目录式安装版位于 `installed/定时关机工具/`；安装包位于 `output/Shutdown-Tool-v2.0.18-Setup.exe`。
+运行 `build.bat` 可生成两种 EXE 并编译安装包。单文件便携版位于 `dist/定时关机工具.exe`；目录式安装版位于 `installed/定时关机工具/`；安装包位于 `output/Shutdown-Tool-v2.0.20-Setup.exe`。
 
 也可手动构建：
 
@@ -32,7 +32,7 @@ Remove-Item Env:SHUTDOWN_BUILD_LAYOUT -ErrorAction SilentlyContinue
 ## 隔离验证
 
 ```powershell
-.\.venv\Scripts\python.exe tools\v218_main_regression.py 1.25
+.\.venv\Scripts\python.exe tools\v220_main_regression.py 1.25
 .\.venv\Scripts\python.exe tools\v211_runtime_regression.py
 .\.venv\Scripts\python.exe tools\v211_ui_regression.py 1.5
 .\.venv\Scripts\python.exe tools\v211_ui_regression.py 2.0

@@ -10,7 +10,7 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "2.0.18"
+VERSION = "2.0.20"
 BUILD_DATE = "2026-10-19"
 
 FEATURE_EN = {
@@ -88,11 +88,11 @@ _TEXTS = {
         "act_shutdown": "关闭电脑",
         "act_restart": "重启电脑",
         "act_logoff": "注销电脑",
-        "act_sleep": "进入睡眠模式",
+        "act_sleep": "睡眠模式",
         "act_monitor_off": "关闭显示器",
         "act_run_program": "运行程序",
         "act_play_sound": "播放声音",
-        "act_message": "弹出消息提示框",
+        "act_message": "弹出提示",
         "group_countdown": "倒计时",
         "group_datetime": "日期",
         "group_interval": "时间段",
@@ -211,11 +211,11 @@ _TEXTS = {
         "param_s_desc": "- 关闭电脑",
         "param_r_desc": "- 重启电脑",
         "param_l_desc": "- 注销电脑",
-        "param_sm_desc": "- 进入睡眠模式",
+        "param_sm_desc": "- 睡眠模式",
         "param_som_desc": "- 关闭显示器",
         "param_rp_desc": "- 运行程序",
         "param_ra_desc": "- 播放声音",
-        "param_m_desc": "- 弹出消息提示框",
+        "param_m_desc": "- 弹出提示",
         "param_w_desc": "- 不要自动开启倒计时",
         "param_t_desc": "- 以秒为单位设置倒计时",
         "param_min_desc": "- 启动后最小化本程序",

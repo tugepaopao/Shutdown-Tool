@@ -146,6 +146,7 @@ class CozyButton(tk.Button):
         font,_,_,_,_,_,_,cw,ch,_=self._content();s=scale(self)
         width=max(cw+2*int(float(self._v['padx']))+12,int(float(self._v['width'] or 0))*font.measure('0'))
         height=max(ch+2*int(float(self._v['pady']))+6,int(float(self._v['height'] or 0))*font.metrics('linespace'))
+        if getattr(self,'_kind','normal')=='outline':height=max(height,round(38*s))
         self._natural=(max(20,int(width)),max(22,int(height)))
         super().configure(width=self._natural[0],height=self._natural[1])
     def _paint(self):
@@ -191,11 +192,26 @@ class CozyButton(tk.Button):
         if skin is not None and not getattr(self,'_row_action',False) and not getattr(self,'_bare_glyph',False):
             im=skin
             radius=max(9,int(12*scale(self)))
-            if getattr(self,'_kind','normal')=='accent':im=tint(im,bg,1,radius,theme.accent if focused else None)
+            if kind=='outline':pass  # Outline is painted below without tinting the artwork.
+            elif kind=='accent':im=tint(im,bg,1,radius,theme.accent if focused else None)
             elif hasattr(self,'_skin_opacity'):im=tint(im,bg,self._skin_opacity,radius,theme.accent if focused else theme.c('card_border') if getattr(self,'_skin_border',False) else None)
             elif self._hovering or self._pressed or focused:im=tint(im,bg,.24,radius,theme.accent if focused else None)
             elif bg not in (theme.c('bg'),theme.c('card')):im=tint(im,bg,.20,radius)
-        # A restrained vertical highlight, clipped inside the rounded fill.
+        if kind=='outline':
+            # Paint only an antialiased stroke. Hover, press and keyboard focus
+            # change the stroke, never the transparency of the button interior.
+            im=skin if skin is not None else Image.new('RGB',(w,h),parent_bg)
+            ink=theme.c('disabled') if disabled else theme.accent
+            if not disabled and (active or self._pressed):ink=blend(ink,theme.c('fg'),.25 if self._pressed else .12)
+            fg=ink if not disabled else fg
+            q=3;s=scale(self);stroke=max(1,round((2.2 if focused else 1.5)*s*q))
+            outline=Image.new('RGBA',(w*q,h*q));draw=ImageDraw.Draw(outline)
+            inset=max(q,stroke//2)
+            draw.rounded_rectangle((inset,inset,w*q-inset-1,h*q-inset-1),radius=round(10*s*q),outline=ink,width=stroke)
+            outline=outline.resize((w,h),Image.Resampling.LANCZOS)
+            im=Image.alpha_composite(im.convert('RGBA'),outline).convert('RGB')
+        # Text and icons remain cached independently of the background.
+
         base=im
         ink_stamp=(w,h,tuple((k,str(v)) for k,v in self._v.items()),fg,str(super().cget('font')),disabled,self._pressed)
         if getattr(self,'_ink_stamp',None)!=ink_stamp:

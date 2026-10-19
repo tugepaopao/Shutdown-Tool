@@ -2,7 +2,7 @@
 import math
 import tkinter as tk
 from tkinter import ttk
-from theme import theme,flat_button,enable_button
+from theme import theme,flat_button,enable_button,blend
 from i18n import feature_text
 
 class ProgressStrip(tk.Canvas):
@@ -13,6 +13,7 @@ class ProgressStrip(tk.Canvas):
     def __init__(self,parent,maximum=100.0):
         self._value=0.0;self._shown=0.0;self._animation=None;self._maximum=float(maximum)
         super().__init__(parent,width=1,height=5,bg=theme.c('divider'),bd=0,highlightthickness=0)
+        self._track=self.create_line(2,2,2,2,width=3,capstyle='round')
         self._fill=self.create_rectangle(0,0,0,5,fill=theme.accent,outline='')
         self.bind('<Configure>',lambda e:self.redraw())
         self.bind('<Destroy>',self._dispose,add='+')
@@ -42,6 +43,9 @@ class ProgressStrip(tk.Canvas):
     def redraw(self):
         percent=max(0,min(1,self._shown/self._maximum)) if self._maximum>0 else 0
         width=round(self.winfo_width()*percent)
+        middle=self.winfo_height()/2
+        self.coords(self._track,2,middle,max(2,self.winfo_width()-2),middle)
+        self.itemconfigure(self._track,fill=blend(theme.accent,'#FFFFFF',.72))
         self.coords(self._fill,0,0,width,self.winfo_height())
         self.itemconfigure(self._fill,fill=theme.accent,state='normal' if width else 'hidden')
         super().configure(bg=theme.c('divider'))
@@ -77,7 +81,7 @@ def build(app,parent):
     headline=tk.Frame(text,bg=theme.c('card'));headline.pack(fill='x')
     app.summary_dot=tk.Canvas(headline,width=10,height=12,bg=theme.c('card'),highlightthickness=0);app.summary_dot.pack(side='left',padx=(0,6))
     app.summary_title=tk.Label(headline,text=feature_text(app.T,'就绪'),anchor='w',bg=theme.c('card'),fg=theme.c('fg'),font=theme.font(bold=True));app.summary_title.pack(side='left',fill='x',expand=True)
-    app.status=tk.Label(text,text=app.T('status_idle'),bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(),anchor='w',justify='left',height=1);app.status.pack(fill='x',pady=(1,0))
+    app.status=tk.Label(text,text=app.T('status_idle'),bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),anchor='w',justify='left',height=1);app.status.pack(fill='x',pady=(1,0))
     track=tk.Frame(app.sbar,height=5,bg=theme.c('divider'));track.pack(fill='x',padx=10,pady=(0,7));track.pack_propagate(False)
     app.progress=ProgressStrip(track,maximum=100.0);app.progress.pack(fill='both',expand=True)
     refresh(app)
@@ -108,7 +112,7 @@ def refresh(app):
     import tkinter.font as font
     for w,bold in ((app.summary_title,True),(app.status,False)):
         if w.winfo_width()<=1:continue
-        for delta in (0,-1,-2,-3):
+        for delta in ((0,-1,-2,-3) if bold else (-1,-2,-3)):
             selected=theme.font(delta=delta,bold=bold)
             if font.Font(root=w,font=selected).measure(w.cget('text'))<=max(1,w.winfo_width()-4):break
         w.config(font=selected)

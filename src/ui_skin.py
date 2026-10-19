@@ -158,27 +158,22 @@ class SkinRenderer:
    self._art_base=image;self._artwork_stamp=artwork_stamp
   image=self._art_base
   layer=Image.new('RGBA',size);d=ImageDraw.Draw(layer)
+  # Transparent controls share one opaque scene. Only the section rules are
+  # composited here; no card wash or selected-row plate covers the artwork.
+  from PIL import ImageColor
+  rule=ImageColor.getrgb(theme.accent)+(145,)
   frames=list(self.app.pages.values())+[self.app.sbar]
+  left=self.box(self.app.container)[0]+round(4*scale(self.root))
+  right=self.box(self.app.container)[2]-round(4*scale(self.root))
   for frame in frames:
-   # Native iconify temporarily unmaps children; their packed layout remains.
-   if not frame.winfo_manager():continue
-   box=self.box(frame);radius=round(19*scale(frame))
-   if self.has_picture and frame is self.app.pages.get('actions'):
-    # A horizontal wash protects the text on the left without hiding the portrait.
-    w,h=box[2]-box[0],box[3]-box[1]
-    mask=Image.new('L',(w,h));md=ImageDraw.Draw(mask)
-    for x in range(w):md.line((x,0,x,h),fill=round(155-130*(x/max(1,w-1))**1.7))
-    clip=Image.new('L',(w,h));ImageDraw.Draw(clip).rounded_rectangle((0,0,w-1,h-1),radius=radius,fill=255)
-    from PIL import ImageChops
-    mask=ImageChops.multiply(mask,clip);plate=Image.new('RGBA',(w,h),(255,255,255,0));plate.putalpha(mask);layer.alpha_composite(plate,(box[0],box[1]));d=ImageDraw.Draw(layer)
-    d.rounded_rectangle(box,radius=radius,outline=(255,255,255,155),width=1)
-   else:
-    from PIL import ImageColor
-    color=ImageColor.getrgb(theme.c('card'));d.rounded_rectangle(box,radius=radius,fill=color+(112 if self.has_picture else 255,),outline=(255,255,255,155) if self.has_picture else None,width=1)
-  selected=self.app.action_var.get()
-  if selected in self.app.action_row_frames:
-   frame=self.app.action_row_frames[selected][0];from PIL import ImageColor
-   d.rounded_rectangle(self.box(frame),radius=round(12*scale(frame)),fill=ImageColor.getrgb(theme.accent)+(38,))
+   if frame.winfo_manager():
+    y=self.box(frame)[1]
+    d.line((left,y,right,y),fill=rule,width=max(1,round(scale(frame))))
+  # Light dividers make the secondary action row read as four equal targets.
+  buttons=[self.app.btn_enqueue,self.app.btn_pause,self.app.btn_stop,self.app.btn_now]
+  for previous,button in zip(buttons,buttons[1:]):
+   a,b=self.box(previous),self.box(button);x=(a[2]+b[0])//2
+   d.line((x,b[1]+round(8*scale(button)),x,b[3]-round(8*scale(button))),fill=rule,width=1)
   return Image.alpha_composite(image.convert('RGBA'),layer).convert('RGB')
  def render(self,force=False):
   self.job=None
@@ -285,9 +280,9 @@ class QuickHeading(tk.Canvas):
  def draw(self):
   if self.winfo_width()<2 or self.winfo_height()<5:return
   w=self.winfo_width();h=self.winfo_height();im=background(self) or Image.new('RGB',(w,h),theme.c('card'));d=ImageDraw.Draw(im)
-  font=pil_font(round(11*scale(self)));text=self.app.T('quick_group');b=d.textbbox((0,0),text,font=font);tw=b[2]-b[0];pill=tw+round(28*scale(self));left=(w-pill)//2;right=left+pill
-  d.line((0,h//2,left-9,h//2),fill=theme.c('divider'),width=1);d.line((right+9,h//2,w,h//2),fill=theme.c('divider'),width=1)
-  d.rounded_rectangle((left,1,right,h-2),radius=h//2,fill=theme.c('sel_row_bg'))
-  cx=left+round(9*scale(self));cy=h//2;r=max(2,round(3*scale(self)));d.polygon([(cx,cy-r),(cx+1,cy-1),(cx+r,cy),(cx+1,cy+1),(cx,cy+r),(cx-1,cy+1),(cx-r,cy),(cx-1,cy-1)],fill=theme.accent)
-  d.text((left+round(18*scale(self))-b[0],(h-(b[3]-b[1]))//2-b[1]),text,font=font,fill=theme.accent)
+  font=pil_font(round(11*scale(self)));text=self.app.T('quick_group');b=d.textbbox((0,0),text,font=font);tw=b[2]-b[0];left=(w-tw)//2;right=left+tw
+  from theme import blend
+  rule=blend(theme.accent,theme.c('card'),.45);gap=round(12*scale(self))
+  d.line((0,h//2,left-gap,h//2),fill=rule,width=1);d.line((right+gap,h//2,w,h//2),fill=rule,width=1)
+  d.text((left-b[0],(h-(b[3]-b[1]))//2-b[1]),text,font=font,fill=theme.accent)
   self._photo=ImageTk.PhotoImage(im,master=self);self.delete('all');self.create_image(0,0,anchor='nw',image=self._photo)

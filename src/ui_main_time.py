@@ -22,7 +22,7 @@ class NumberInput(tk.Canvas):
     def __init__(self,parent,variable,maximum):
         self.variable=variable;self.maximum=maximum;self.s=scale(parent)
         self.focused=False;self.selected=False;self.cursor=len(variable.get())
-        super().__init__(parent,width=round(80*self.s),height=round(46*self.s),bg=parent.cget('bg'),bd=0,highlightthickness=0,takefocus=True)
+        super().__init__(parent,width=round(64*self.s),height=round(44*self.s),bg=parent.cget('bg'),bd=0,highlightthickness=0,takefocus=True)
         self.trace=variable.trace_add('write',self.changed)
         self.bind('<Configure>',lambda e:self.draw())
         self.bind('<FocusIn>',self.focus_in);self.bind('<FocusOut>',self.focus_out)
@@ -84,7 +84,7 @@ class NumberInput(tk.Canvas):
     def draw(self):
         if not surface(self):return
         import tkinter.font as tkfont
-        w,h=self.winfo_width(),self.winfo_height();text=self.variable.get();font=theme.font(delta=9,bold=True)
+        w,h=self.winfo_width(),self.winfo_height();text=self.variable.get();font=theme.font(delta=8,bold=True)
         center=(w-round(16*self.s))/2
         self.create_text(center,h/2,text=text,font=font,fill=blend(theme.c('fg'),theme.c('card'),.14))
         if self.focused:
@@ -103,7 +103,7 @@ class WeekdayInput(SoftChoice):
         self.variable=variable;self.show_focus_ring=False
         super().__init__(parent,app,values)
         import tkinter.font as tkfont
-        self.configure(height=round(46*scale(parent)),width=tkfont.Font(root=self,font=theme.font(delta=9,bold=True)).measure('星期三')+round(30*self.s))
+        self.configure(height=round(44*scale(parent)),width=tkfont.Font(root=self,font=theme.font(delta=8,bold=True)).measure('星期三')+round(30*self.s))
     def open(self):
         from ui_popup_menu import VioletMenu
         old=getattr(self,'popup',None)
@@ -120,6 +120,6 @@ class WeekdayInput(SoftChoice):
     def draw(self):
         if not surface(self):return
         w,h=self.winfo_width(),self.winfo_height();s=self.s
-        self.create_text((w-round(16*s))/2,h/2,text=self.values[self.index],font=theme.font(delta=9,bold=True),fill=blend(theme.c('fg'),theme.c('card'),.14))
+        self.create_text((w-round(16*s))/2,h/2,text=self.values[self.index],font=theme.font(delta=8,bold=True),fill=blend(theme.c('fg'),theme.c('card'),.14))
         x=w-round(12*s)
         self.create_line(x-4*s,h/2-2*s,x,h/2+2*s,x+4*s,h/2-2*s,fill=theme.c('fg_muted'),width=max(1,round(s)))

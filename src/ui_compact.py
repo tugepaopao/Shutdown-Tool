@@ -64,11 +64,9 @@ def build_actions(app, parent):
     heading(app, parent, 1, app.T('nav_actions'), True)
     body = tk.Frame(parent, bg=theme.c('card'))
     from ui_cozy import scale
-    body.configure(width=max(360,round(344*scale(body))))
-    body.pack(anchor='w',padx=8,pady=(0,9))
-    body.pack_propagate(False)
-    body.grid_propagate(False)
-    body.configure(height=round(180*scale(body)))
+    # Let the five actual rows set the height at every DPI; a fixed scaled
+    # height left an increasingly large empty band below them.
+    body.pack(anchor='w',padx=6,pady=(0,6))
     app.actions_box = app.actions_body = body
     app.hint_label = tk.Label(body)
     app.action_var = tk.StringVar(value=app.cfg.get('action'))
@@ -87,29 +85,37 @@ def build_actions(app, parent):
         set_icon(app,rb,action,19)
         rb._row_action=True;rb._fit_text=True
         rb.pack(side='left', fill='x', expand=True)
-        check = tk.Label(row, bg=theme.c('card'), width=20, image=icon(app, 'check', 17))
+        check = tk.Label(row, bg=theme.c('card'), width=round(17*scale(row)), image=icon(app, 'check', 17))
         check.pack(side='right', padx=(0, 1)); app.action_checks[action] = check
         check.bind('<Button-1>', lambda e,a=action: (app.action_var.set(a), app._on_action_pick()))
         if more:
             b=flat_button(row, '…', lambda a=action:app.pick_for(a), kind='ghost', padx=round(7*scale(row)),pady=2)
+            b._skin_opacity=0;b._skin_border=False
             b.pack(side='right');app.action_more[action]=b
             app.detail_labels[action]=tk.Label(grp)
-        # Reserve check and edit controls before allocating flexible text.
-        rb.pack_forget();rb.pack(side='left',fill='x',expand=True)
+        # Keep the check beside the text, and parameters at the column edge.
+        rb.pack_forget();check.pack_forget()
+        rb.pack(side='left');check.pack(side='left',padx=(0,1))
         app.action_widgets[action]=rb; app.detail_rows[action]=row
         app.action_row_frames[action]=(grp,row,ind)
-    for col in (0,1):body.columnconfigure(col, weight=1, uniform='action')
+    # Each column reserves its own actual text/control width. A longer label
+    # in the right column must not push that whole column farther to the right.
+    for col in (0,1):body.columnconfigure(col,weight=0)
     app._bind_action_rows(); app._refresh_action_styles()
 
 
 def paint_action(app, action, hover=False, selected=False):
-    bg=theme.c('sel_row_bg' if selected else ('hover' if hover else 'card'))
+    bg=theme.c('card')
     grp,row,ind=app.action_row_frames[action]
     grp.config(bg=bg, highlightbackground=theme.accent if selected else theme.c('card_border'))
     row.config(bg=bg); ind.config(bg=bg)
     for w in row.winfo_children():
         w.config(bg=bg)
         if isinstance(w,(tk.Button,tk.Radiobutton)):w.config(activebackground=bg)
+    ink=theme.accent if selected else theme.c('fg')
+    app.action_widgets[action].config(fg=ink)
+    if action in app.action_more:
+        app.action_more[action].config(fg=theme.accent if selected else theme.c('fg_dim'))
     set_icon(app,app.action_checks[action],'check' if selected else 'blank',17)
 
 
@@ -132,7 +138,7 @@ def build_timer(app, parent):
     for c in box.winfo_children():
         if c is not inner:c.pack_forget()
     box.config(highlightthickness=0,bg=theme.c('card'))
-    inner.pack_configure(padx=8,pady=(0,10))
+    inner.pack_configure(padx=6,pady=(0,8))
     inner.config(bg=theme.c('card'))
     panel=app.timer_panel; panel.config(bg=theme.c('card'))
     gp=app.preset_row.master
@@ -178,7 +184,7 @@ def build_timer(app, parent):
         for c in group.winfo_children():
             if isinstance(c,tk.Label):c.pack_forget()
             else:
-                c.pack_configure(padx=8,pady=(8,10))
+                c.pack_configure(padx=4,pady=(6,8))
                 cols=max(int(w.grid_info().get('column',0)) for w in c.winfo_children())+1
                 for col in range(cols):
                     # The weekday needs three large glyphs; do not multiply its width
@@ -186,8 +192,10 @@ def build_timer(app, parent):
                     c.columnconfigure(col,weight=0 if mode=='datetime' and col==0 else 1,uniform='' if mode=='datetime' and col==0 else 'time_'+mode)
                 fields=[]
                 for w in list(c.winfo_children()):
-                    w.grid_configure(sticky='ew',padx=4)
-                    if isinstance(w,tk.Label):w.configure(anchor='center')
+                    w.grid_configure(sticky='ew',padx=2)
+                    if isinstance(w,tk.Label):
+                        labels={'天数':'天','小时数':'时','分钟数':'分','秒数':'秒'}
+                        w.configure(anchor='center',text=labels.get(str(w.cget('text')),w.cget('text')))
                     elif w is app.weekday_box:
                         info=w.grid_info();values=list(w.cget('values'));index=w.current();w.destroy()
                         field=WeekdayInput(c,app,values,app.weekday_var);field.current(index)
@@ -213,11 +221,11 @@ def build_timer(app, parent):
     # A full-width primary action, with four equal secondary actions below.
     app.btn_clear.grid_forget()
     app.btn_start.grid_configure(row=0,column=0,columnspan=4,padx=0,pady=(0,5))
-    app.btn_start._soft_primary=False
-    app.btn_start._kind='accent'
-    app.btn_start._skin_opacity=.85
-    app.btn_start._bg=theme.accent;app.btn_start._fg=theme.c('accent_fg')
-    app.btn_start.config(bg=theme.accent,fg=theme.c('accent_fg'),image=icon(app,'play',19),compound='left',font=theme.font(delta=2,bold=True),pady=7)
+    app.btn_start._soft_primary=True
+    app.btn_start._kind='outline'
+    app.btn_start._skin_opacity=0
+    app.btn_start._bg=theme.c('card');app.btn_start._fg=theme.accent
+    app.btn_start.config(bg=theme.c('card'),fg=theme.accent,compound='left',font=theme.font(delta=2,bold=True),pady=5)
     set_icon(app,app.btn_start,'play',19)
     app.btn_now=flat_button(app.time_btn_row,app.T('btn_now'),app.perform_now,kind='normal',font=theme.font(delta=-2),padx=2,pady=5)
     for col,(button,name) in enumerate(((app.btn_enqueue,'enqueue'),(app.btn_pause,'pause'),(app.btn_stop,'stop'),(app.btn_now,'bolt'))):
@@ -252,22 +260,12 @@ def build_footer(app,parent):
 
 
 def measure(app):
-    from ui_main import MODE_KEYS
-    original=app.mode_var.get();width=450;height=0
-    import tkinter.font as tkfont
-    from i18n import Texts
-    from ui_main import ACTION_ROWS
     from ui_cozy import scale
-    font=tkfont.Font(root=app.root,font=theme.font())
-    widest=max(font.measure(Texts(lang)(key)) for lang in ('CHS',) for _,key,_ in ACTION_ROWS)
-    width=max(width,2*(widest+round(105*scale(app.root)))+24)
-    for mode in MODE_KEYS:
-        app.mode_var.set(mode);app._refresh_time_groups();app.root.update_idletasks()
-        width=max(width,app.content_area.winfo_reqwidth(),app.footer.winfo_reqwidth())
-        height=max(height,app.content_area.winfo_reqheight())
-    app.mode_var.set(original);app._refresh_time_groups();app._refresh_mode_btns()
+    # Time surfaces stay mapped in a fixed stack, so their natural requests
+    # already cover all modes. Avoid widest-label * 2 plus arbitrary reserves.
     app.root.update_idletasks()
-    return max(round(456*scale(app.root)),max(width,app.root.winfo_reqwidth())+32-round(20*scale(app.root))),app.root.winfo_reqheight()
+    width=max(round(426*scale(app.root)),app.root.winfo_reqwidth())
+    return width,app.root.winfo_reqheight()
 
 
 def build_ui(app):
