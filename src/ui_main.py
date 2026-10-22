@@ -1172,7 +1172,7 @@ class App(object):
         """状态栏唯一写入口，始终直接显示最新状态。"""
         self._status_key = (key, kw)
         try:
-            self.status.config(text=self.T(key, **kw))
+            if not self.engine.is_running():self.status.config(text=self.T(key, **kw))
         except Exception:
             pass
 
@@ -1482,7 +1482,7 @@ class App(object):
                 self._active_task = None
 
                 # A directly started single task never resumes an unrelated queue.
-                if queued and self.task_queue:
+                if (queued or getattr(self,'_queued_after_generation',None)==self.engine.generation) and self.task_queue:
                     generation=self.engine.generation
                     self.root.after(1200,lambda:self._start_next_task() if self.engine.generation==generation else None)
         elif event == "action_done":

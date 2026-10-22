@@ -31,7 +31,8 @@ class VioletMenu(tk.Toplevel):
         cx=button.winfo_rootx();cy=button.winfo_rooty();left,top,right,bottom=min(workareas(app.root),key=lambda a:max(a[0]-cx,0,cx-a[2])**2+max(a[1]-cy,0,cy-a[3])**2)
         x=max(left,min(right-width,button.winfo_rootx()+(button.winfo_width()-width)//2 if compact else button.winfo_rootx()+button.winfo_width()-width));y=button.winfo_rooty()+button.winfo_height()+round(5*s)
         if y+height>bottom:y=max(top,button.winfo_rooty()-height-round(5*s))
-        self.geometry(f'{width}x{height}+{x}+{y}')
+        self._screen_position=(x,y)
+        self.geometry(f'{width}x{height}{x:+d}{y:+d}')
         self.bind('<Map>',self._mapped,add='+');self.bind('<Escape>',lambda e:self.dismiss());self.bind('<Up>',lambda e:self.navigate(-1));self.bind('<Down>',lambda e:self.navigate(1));self.bind('<Home>',lambda e:self.highlight(0,True));self.bind('<End>',lambda e:self.highlight(len(self.buttons)-1,True));self.bind('<ButtonPress-1>',self._outside,add='+');self.bind('<FocusOut>',lambda e:app.root.after_idle(self._lost_focus),add='+')
         self._move_binding=self.owner.bind('<Configure>',lambda e:self.dismiss() if e.widget is self.owner else None,add='+')
         self._dialog_ready=True;_main_opacity(self,0);self.deiconify();self.grab_set();self.focus_set()
@@ -43,6 +44,10 @@ class VioletMenu(tk.Toplevel):
         # Only this small, stationary popup uses a native rounded region.
         u=ctypes.windll.user32;g=ctypes.windll.gdi32;u.GetAncestor.argtypes=[W.HWND,W.UINT];u.GetAncestor.restype=W.HWND
         hwnd=u.GetAncestor(self.winfo_id(),2);g.CreateRoundRectRgn.argtypes=[ctypes.c_int]*6;g.CreateRoundRectRgn.restype=W.HRGN;u.SetWindowRgn.argtypes=[W.HWND,W.HRGN,W.BOOL]
+        # Tk treats negative geometry offsets as distance from the right/bottom
+        # edge. Position the actual HWND for monitors left/above the primary.
+        u.SetWindowPos.argtypes=[W.HWND,W.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,W.UINT]
+        u.SetWindowPos(hwnd,None,*self._screen_position,0,0,0x15)
         radius=round(15*scale(self));region=g.CreateRoundRectRgn(0,0,self.winfo_width()+1,self.winfo_height()+1,radius,radius)
         if region and not u.SetWindowRgn(hwnd,region,True):g.DeleteObject(W.HGDIOBJ(region))
         present_dialog(self)
@@ -67,6 +72,7 @@ class VioletMenu(tk.Toplevel):
         focus=current_focus(self)
         if focus is None or focus.winfo_toplevel() is not self:self.dismiss()
     def select(self,index):
+        if self.closed:return
         menu=self.menu;root=self.app.root;self.dismiss(False)
         def invoke():
             try:menu.invoke(index)

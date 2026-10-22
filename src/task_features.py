@@ -16,10 +16,35 @@ def current_task(app):
 
 def start_current(app):
     from ui_localize import messagebox
+    continue_queue=False
     try:task=current_task(app)
     except (ValueError,TypeError) as exc:
         messagebox.showinfo(app.T('tip_title'),str(exc),parent=app.root);return
     if not app._validate_action(task['action']):return
+    if app.engine.is_running():
+        generation=app.engine.generation
+        current=app.describe_action(app._active_task or {})
+        choice=messagebox.askyesnocancel('已有任务正在运行',
+            f'{current}正在计时\n替换会按上方设置重新开始\n加入队列会等待当前任务结束后执行\n循环任务需要先结束循环',
+            parent=app.root,default='cancel',labels={'yes':'替换当前任务','no':'加入队列','cancel':'取消'})
+        if choice is None:return
+        # A modal dialog continues pumping timer events. Never replace a task
+        # which started while the user was considering the old task.
+        if app.engine.generation!=generation or not app.engine.is_running():
+            messagebox.showinfo('任务状态已变化','当前任务已结束或发生变化，请重新确认安排。',parent=app.root);return
+        if not choice:
+            try:enqueue(app,task);app._queued_after_generation=generation
+            except (ValueError,OSError) as exc:messagebox.showerror('加入队列失败',str(exc),parent=app.root)
+            return
+        app._close_cancel_toast()
+        continue_queue=(getattr(app,'_queued_after_generation',None)==generation or app._active_task in app.task_queue)
+        # Remove the replaced active queue entry so it cannot execute again.
+        if app._active_task in app.task_queue:
+            old=list(app.task_queue);app.task_queue.remove(app._active_task)
+            try:refresh_queue(app)
+            except OSError as exc:
+                app.task_queue=old;app._save_queue()
+                messagebox.showerror('替换失败',str(exc),parent=app.root);return
     app.engine.warning_seconds=int(app.cfg.get("warning_seconds",10))
     app._save_time_fields();app._active_task=task
     target=None
@@ -30,6 +55,7 @@ def start_current(app):
         app.engine.start_datetime(target)
     elif task['mode']=='interval':app.engine.start_interval(task['seconds'])
     else:app.engine.start_countdown(task['seconds'])
+    if continue_queue:app._queued_after_generation=app.engine.generation
     app._set_running_ui(True);app._log_setup(task,target=target)
 
 def enqueue_current(app):
@@ -104,12 +130,14 @@ def postpone(app,minutes):
     if minutes not in (5,10,30):raise ValueError('只支持延后5、10或30分钟')
     if not app.engine.is_running():return False
     remain=app.engine.remaining();paused=app.engine.paused;mode=app.engine.mode
+    continue_queue=getattr(app,'_queued_after_generation',None)==app.engine.generation
     # 重建这一轮使所有已排队的 tick/warn/finished 都作废，循环间隔本身保持。
     seconds=remain+minutes*60
     interval=app.engine._interval
     if mode=='interval':
         app.engine._start(seconds,mode);app.engine._interval=interval
     else:app.engine.start_countdown(seconds)
+    if continue_queue:app._queued_after_generation=app.engine.generation
     if paused:app.engine.pause()
     app._close_cancel_toast();app._last_remain=seconds;app._set_running_ui(True)
     app._set_status('status_due_paused' if paused else 'status_due',t=format_remain(seconds,app.T),d=app._due_text())
@@ -125,6 +153,7 @@ def save_pending(app):
     if app.engine.is_running():
         task=copy.deepcopy(app._active_task or current_task(app))
         pending={**task,'deadline':time.time()+app.engine.remaining(),'paused':app.engine.paused,
+                 'continue_queue':getattr(app,'_queued_after_generation',None)==app.engine.generation,
                  'remaining':app.engine.remaining(),'engine_mode':app.engine.mode,'interval_seconds':app.engine._interval,
                  'queued':bool(app._active_task and 'id' in app._active_task and any(t.get('id')==app._active_task['id'] for t in app.task_queue))}
     app.cfg['pending_timer']=pending
@@ -140,7 +169,7 @@ def resume_pending(app):
         pause_recovery=strategy=='paused'
         if strategy=='ask':
             from ui_localize import messagebox
-            choice=messagebox.askyesnocancel('恢复上次定时？','继续上次未完成的定时，或先暂停后再决定。',parent=app.root,default='cancel',labels={'yes':'继续计时','no':'恢复为暂停','cancel':'不恢复'})
+            choice=messagebox.askyesnocancel('恢复上次定时','上次的任务还没有完成\n可以继续计时，也可以先恢复为暂停状态',parent=app.root,default='cancel',labels={'yes':'继续计时','no':'恢复为暂停','cancel':'不恢复'})
             if choice is None:return
             pause_recovery=not choice
             if not pending.get('paused'):remaining=float(pending.get('deadline',0))-time.time()
@@ -150,6 +179,7 @@ def resume_pending(app):
         active=next((t for t in app.task_queue if {k:v for k,v in t.items() if k!='id'}=={k:v for k,v in task.items() if k!='id'}),None) if pending.get('queued') else None
         app._active_task=active or task
         app.engine.start_countdown(remaining)
+        if pending.get('continue_queue'):app._queued_after_generation=app.engine.generation
         if pending.get('engine_mode')=='interval' or task['mode']=='interval':
             with app.engine._lock:
                 app.engine._mode='interval';app.engine._interval=float(pending.get('interval_seconds',task['seconds']))

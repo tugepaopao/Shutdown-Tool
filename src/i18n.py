@@ -10,8 +10,8 @@ APP_NAME_CHT = "定時關機工具"
 APP_NAME_EN = "Scheduled Shutdown Tool"
 
 AUTHOR = "@wenhao"
-VERSION = "2.0.20"
-BUILD_DATE = "2026-10-19"
+VERSION = "2.0.24"
+BUILD_DATE = "2026-10-22"
 
 FEATURE_EN = {
     '任务管理':'Task management','设置与任务模板备份':'Settings and task backups',

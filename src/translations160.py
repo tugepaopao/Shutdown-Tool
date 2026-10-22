@@ -1,5 +1,9 @@
 """v1.6界面文案；原控件本地化使用同一份映射。"""
 EN={
+ '你修改的设置还没有保存\n保存后即可在下次启动时继续使用':'Your changes have not been saved\nSave them to keep your settings for next time',
+ '保存并关闭':'Save and close','保留当前设置':'Keep current settings','先保存':'Save first',
+ '你修改的设置还没有保存\n恢复备份前，可以先保存这次修改':'Your changes have not been saved\nYou can save them before restoring the backup',
+ '恢复上次定时':'Restore previous timer','上次的任务还没有完成\n可以继续计时，也可以先恢复为暂停状态':'Your previous timer is unfinished\nContinue the timer or restore it paused',
  '今日跳过':'Skipped today','等待条件':'Waiting','确认中':'Confirming','等待空闲':'Awaiting idle','前置运行':'Preparing','已过期':'Expired','已错过':'Missed','已入队':'Queued','已超时':'Timed out','监控失败':'Monitor failed','入队失败':'Queue failed','保存失败':'Save failed','需重启用':'Re-enable',
  '已过期，未补执行':'Expired; not executed','已错过，未执行':'Missed; not executed','已加入队列':'Added to queue','加入队列失败，未执行':'Could not add to queue; not executed','预约保存失败，未执行':'Schedule could not be saved; not executed','监控结果保存失败，未执行':'Monitoring result could not be saved; not executed','重开后需重新启用任务链':'Re-enable the task chain after restarting',
  '自动保留最近10份正常配置\n计时状态变化不会反复生成备份':'Keep the last 10 good configurations\nTimer updates do not create extra backups',

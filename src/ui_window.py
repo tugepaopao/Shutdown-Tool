@@ -247,7 +247,7 @@ def button_grid(parent,items,columns=None):
     return buttons
 
 
-def compact_show(window, app, height=520, width=None, anchor=None):
+def compact_show(window, app, height=520, width=None, anchor=None, position=None):
     """Opt-in auxiliary window bounds, matching settings without changing main UI."""
     from ui_cozy import scale
     from ui_floating import workareas, clamp_position
@@ -260,6 +260,7 @@ def compact_show(window, app, height=520, width=None, anchor=None):
     size=(min(round(width*s),area[2]-area[0]-20),min(round(height*s),area[3]-area[1]-20))
     window._compact_size=size
     x,y=clamp_position(cx+25,cy+25,*size,areas)
+    if position:x,y=clamp_position(*position,*size,areas)
     if anchor:
         from ui_anchor import bounds
         x,y,w,h=bounds((anchor.winfo_rootx()+max(0,anchor.winfo_width()-round(34*getattr(anchor,'s',1))),anchor.winfo_rooty(),round(34*getattr(anchor,'s',1)),anchor.winfo_height()),*size,areas)
@@ -274,6 +275,23 @@ def compact_show(window, app, height=520, width=None, anchor=None):
         u.SetWindowPos.argtypes=[W.HWND,W.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,W.UINT]
         u.SetWindowPos(u.GetAncestor(window.winfo_id(),2),None,x,y,*size,0x14)
     except (AttributeError,OSError):pass
+
+
+def content_show(window,app,width=360,min_height=120,max_height=420):
+    """Fit small prompts to visible content, retaining position during updates."""
+    from ui_cozy import scale
+    position=(window.winfo_x(),window.winfo_y()) if window.winfo_viewable() else None
+    window.update_idletasks()
+    height=max(min_height,min(max_height,window.winfo_reqheight()/scale(window)))
+    compact_show(window,app,width=width,height=height,position=position)
+
+
+def text_rows(widget,text,width,font,maximum=12):
+    """Conservative wrapped-line estimate for a bounded read-only text area."""
+    import math,tkinter.font as tkfont
+    measured=tkfont.Font(root=widget,font=font)
+    rows=sum(max(1,math.ceil(measured.measure(line)/max(1,width))) for line in str(text).split('\n'))
+    return min(maximum,max(2,rows+1))
 
 
 def wrap_to_width(label):

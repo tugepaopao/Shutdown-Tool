@@ -34,7 +34,7 @@ a = Analysis(
         'PIL.ImageDraw',
         'PIL.ImageTk',
         # v1.2.0：下面这几个是在函数内部延迟 import 的，显式写进来更保险
-        'run_log',
+        'run_log', 'release_update', 'ui_release_update',
         'ui_queue', 'ui_task_center', 'ui_library_cards', 'ui_advanced_editor', 'ui_soft_controls', 'ui_date_picker', 'ui_diagnostics', 'automation_status',
         'ui_log',
         'ui_settings',

@@ -56,7 +56,7 @@ class RestorePreview(tk.Toplevel):
 def restore_preview(app,parent,path):
     win=getattr(app,'_settings_win',None)
     if win and win.winfo_exists() and win.dirty:
-        result=messagebox.askyesnocancel('保存更改？','恢复前先保存或放弃当前设置草稿。',parent=parent,default='cancel',labels={'yes':'保存','no':'放弃','cancel':'继续编辑'})
+        result=messagebox.askyesnocancel('保留当前设置','你修改的设置还没有保存\n恢复备份前，可以先保存这次修改',parent=parent,default='cancel',labels={'yes':'先保存','no':'放弃更改','cancel':'继续编辑'})
         if result is None:return False
         if result:
             if not win.on_apply():return False

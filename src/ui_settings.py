@@ -215,6 +215,11 @@ class SettingsWindow(tk.Toplevel):
         return e
     def _build_general(self):
         pad=self._page('general','通用与启动')
+        g=self._card(pad,'软件更新')
+        from i18n import VERSION
+        self._lab(g,'当前版本 v'+VERSION,fg=C['muted']).pack(anchor='w')
+        from ui_release_update import open_update
+        flat_button(g,'检查更新',lambda:open_update(self.app,self),kind='accent').pack(fill='x',pady=5)
         g=self._card(pad,'窗口行为')
         self._row(g,'最小化：回到任务栏')
         self._check(g,'minimize_to_tray','关闭主窗口时隐藏到托盘')
@@ -387,7 +392,7 @@ class SettingsWindow(tk.Toplevel):
     def request_close(self):
         if self._closing:return 'break'
         if self.dirty:
-            result=messagebox.askyesnocancel('保存更改？','是：保存；否：放弃；取消：继续编辑。',parent=self,default='cancel',labels={'yes':'保存','no':'放弃','cancel':'继续编辑'})
+            result=messagebox.askyesnocancel('保存设置','你修改的设置还没有保存\n保存后即可在下次启动时继续使用',parent=self,default='cancel',labels={'yes':'保存并关闭','no':'放弃更改','cancel':'继续编辑'})
             if result is None:return 'break'
             if result and not self.on_apply():return 'break'
         self.destroy();return 'break'

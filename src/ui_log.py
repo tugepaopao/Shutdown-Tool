@@ -157,13 +157,17 @@ class LogWindow(tk.Toplevel):
     def _show_detail(self,_e=None):
         if not 0<=self.selected<len(self.filtered_rows):return
         rec=self.filtered_rows[self.selected];win=tk.Toplevel(self);prepare(win);win.app=self.app;win.T=self.T;win.title('日志详情');win.transient(self);win.config(bg=C['bg'])
-        flat_button(win,'关闭',win.destroy,kind='accent',pady=7).pack(side='bottom',fill='x',padx=10,pady=8)
+        footer=tk.Frame(win,bg=C['bg']);footer.pack(side='bottom',fill='x',padx=12,pady=(0,10))
+        flat_button(footer,'关闭',win.destroy,kind='accent',padx=16,pady=5).pack(side='right')
         card=CozyFrame(win,bg=C['card']);card.pack(fill='both',expand=True,padx=10,pady=6)
-        body=tk.Frame(card,bg=C['card']);body.pack(fill='both',expand=True,padx=12,pady=12)
-        text=tk.Text(body,wrap='word',bg=C['card'],fg=C['fg'],font=theme.font(delta=-1),bd=0,highlightthickness=0);text.pack(side='left',fill='both',expand=True)
+        body=tk.Frame(card,bg=C['card']);body.pack(fill='both',expand=True,padx=12,pady=8)
+        text=tk.Text(body,wrap='word',width=1,bg=C['card'],fg=C['fg'],font=theme.font(delta=-1),bd=0,highlightthickness=0);text.pack(side='left',fill='both',expand=True)
         scroll=ttk.Scrollbar(body,command=text.yview);scroll.pack(side='right',fill='y');text.config(yscrollcommand=scroll.set)
-        text.insert('1.0',str(rec.get('ts',''))+'\n'+kind_text(self.T,rec.get('kind'))+'\n\n'+str(rec.get('text',''))+'\n\n'+record_detail(rec));text.config(state='disabled')
-        win.bind('<Escape>',lambda e:win.destroy());compact_show(win,self.app,width=440,height=330);win.grab_set();text.focus_set()
+        text.insert('1.0',str(rec.get('ts',''))+' · '+kind_text(self.T,rec.get('kind'))+'\n\n'+str(rec.get('text',''))+ ('\n'+record_detail(rec) if record_detail(rec) else ''));text.config(state='disabled')
+        from ui_window import content_show,text_rows
+        rows=text_rows(win,text.get('1.0','end-1c'),350*self.s,text.cget('font'),maximum=13);text.config(height=rows)
+        if rows<13:scroll.pack_forget()
+        win.bind('<Escape>',lambda e:win.destroy());content_show(win,self.app,width=390,min_height=150,max_height=360);win.grab_set();text.focus_set()
     def _clear(self):
         import run_log
         if not messagebox.askyesno('清空日志','确定清空全部执行日志吗？此操作无法撤销。',parent=self):return

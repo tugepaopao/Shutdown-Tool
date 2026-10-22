@@ -80,7 +80,7 @@ def build(app,parent):
     text=tk.Frame(line,bg=theme.c('card'));text.pack(side='left',fill='x',expand=True)
     headline=tk.Frame(text,bg=theme.c('card'));headline.pack(fill='x')
     app.summary_dot=tk.Canvas(headline,width=10,height=12,bg=theme.c('card'),highlightthickness=0);app.summary_dot.pack(side='left',padx=(0,6))
-    app.summary_title=tk.Label(headline,text=feature_text(app.T,'就绪'),anchor='w',bg=theme.c('card'),fg=theme.c('fg'),font=theme.font(bold=True));app.summary_title.pack(side='left',fill='x',expand=True)
+    app.summary_title=tk.Label(headline,text=feature_text(app.T,'就绪'),anchor='w',bg=theme.c('card'),fg=theme.c('fg'),font=theme.font(bold=True),pady=3);app.summary_title.pack(side='left',fill='x',expand=True)
     app.status=tk.Label(text,text=app.T('status_idle'),bg=theme.c('card'),fg=theme.c('fg_dim'),font=theme.font(delta=-1),anchor='w',justify='left',height=1);app.status.pack(fill='x',pady=(1,0))
     track=tk.Frame(app.sbar,height=5,bg=theme.c('divider'));track.pack(fill='x',padx=10,pady=(0,7));track.pack_propagate(False)
     app.progress=ProgressStrip(track,maximum=100.0);app.progress.pack(fill='both',expand=True)
@@ -88,39 +88,43 @@ def build(app,parent):
 
 def refresh(app):
     if not hasattr(app,'summary_ring'):return
-    app.progress.redraw()
     running=app.engine.is_running();paused=app.engine.paused;lang=app.T.lang
     title=feature_text(app.T,'就绪')
+    detail=app.T(app._status_key[0],**app._status_key[1]) if getattr(app,'_status_key',None) else app.T('status_idle')
     if running:
-        task=app._active_task or {'action':app._current_action()}
-        action=app.describe_action(task)
-        if task.get('action')=='message':action={'EN':'Message box','CHT':'提示框','CHS':'提示框'}[lang]
-        remaining=max(0,int(app.engine.remaining()));minutes=math.ceil(remaining/60)
-        delay=(f'in {minutes} min' if remaining>=60 else f'in {remaining} sec') if lang=='EN' else (f'{minutes}分鐘後執行' if remaining>=60 else f'{remaining}秒後執行') if lang=='CHT' else (f'{minutes}分钟后执行' if remaining>=60 else f'{remaining}秒后执行')
-        single=('Repeat' if app.engine.mode=='interval' else 'Once') if lang=='EN' else ('循環' if lang=='CHT' else '循环') if app.engine.mode=='interval' else ('單次' if lang=='CHT' else '单次')
-        title=action+' · '+single+' · '+(('Paused' if lang=='EN' else '已暫停' if lang=='CHT' else '已暂停') if paused else delay)
-        due=app.engine.due_at()
-        if due:
+        from actions import action_label
+        from i18n import format_remain
+        action=action_label((app._active_task or {}).get('action',app._current_action()),app.T)
+        state=('Paused' if paused else 'Timing') if lang=='EN' else ('已暫停' if paused else '計時中') if lang=='CHT' else ('已暂停' if paused else '计时中')
+        title=state+' · '+action
+        remaining=max(0,math.ceil(app.engine.remaining()))
+        detail=('Remaining ' if lang=='EN' else '剩餘 ' if lang=='CHT' else '剩余 ')+format_remain(remaining,app.T)
+        if paused:detail+=' · '+('Resume to recalculate' if lang=='EN' else '继续后重新计算执行时间')
+        else:
             import datetime as dt
-            weekdays=('Mon','Tue','Wed','Thu','Fri','Sat','Sun') if lang=='EN' else ('週一','週二','週三','週四','週五','週六','週日') if lang=='CHT' else ('周一','周二','周三','周四','周五','周六','周日')
-            when=due.strftime('%H:%M') if due.date()==dt.datetime.now().date() else due.strftime('%m-%d ')+weekdays[due.weekday()]+due.strftime(' %H:%M')
-            state=('Paused' if paused else 'Counting down') if lang=='EN' else ('已暫停' if paused else '正在計時') if lang=='CHT' else ('已暂停' if paused else '正在计时')
-            from ui_runtime_context import edited
-            if edited(app):state+=' · '+('Editing next' if lang=='EN' else '編輯下次設定' if lang=='CHT' else '编辑下次设定')
-            app.status.config(text=('Due ' if lang=='EN' else '預計 ' if lang=='CHT' else '预计 ')+when+' · '+state)
-    app.summary_title.config(text=title)
+            due=app.engine.due_at()
+            if due:detail+=' · '+('Due ' if lang=='EN' else '预计 ')+due.strftime('%H:%M:%S' if due.date()==dt.datetime.now().date() else '%m-%d %H:%M:%S')
+    key=(title,detail,running,paused,lang,theme.accent,app.summary_title.winfo_width(),app.status.winfo_width())
+    if getattr(app,'_summary_state',None)==key:return
+    app._summary_state=key
     import tkinter.font as font
-    for w,bold in ((app.summary_title,True),(app.status,False)):
+    for w,text,bold in ((app.summary_title,title,True),(app.status,detail,False)):
+        if w.cget('text')!=text:w.config(text=text)
+        # Before layout Tk reports width=1. Shrinking then makes the skin cache
+        # reserve a short bitmap; later full-size glyphs get clipped vertically.
         if w.winfo_width()<=1:continue
         for delta in ((0,-1,-2,-3) if bold else (-1,-2,-3)):
             selected=theme.font(delta=delta,bold=bold)
-            if font.Font(root=w,font=selected).measure(w.cget('text'))<=max(1,w.winfo_width()-4):break
-        w.config(font=selected)
-    enable_button(app.summary_pause,running);enable_button(app.summary_stop,running)
-    app.summary_pause._theme_photo=control_icon(app,paused)
-    app.summary_pause.config(text='',image=app.summary_pause._theme_photo)
+            if font.Font(root=w,font=selected).measure(text)<=max(1,w.winfo_width()-4):break
+        if str(w.cget('font'))!=str(selected):w.config(font=selected)
+    controls=(running,paused,theme.accent)
+    if getattr(app,'_summary_controls',None)!=controls:
+        app._summary_controls=controls
+        enable_button(app.summary_pause,running);enable_button(app.summary_stop,running)
+        app.summary_pause._theme_photo=control_icon(app,paused)
+        app.summary_pause.config(text='',image=app.summary_pause._theme_photo)
+        dot=app.summary_dot;dot.delete('all');dot.create_oval(1,2,9,10,outline='',fill=theme.c('fg_muted') if not running else ('#e3a533' if paused else '#26b850'))
     from ui_runtime_context import paint
     paint(app)
-    dot=app.summary_dot;dot.delete('all');dot.create_oval(1,2,9,10,outline='',fill=theme.c('fg_muted') if not running else ('#e3a533' if paused else '#26b850'))
     renderer=getattr(app,'skin_renderer',None)
     if renderer:renderer.canvas_backgrounds()
